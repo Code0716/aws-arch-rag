@@ -3,7 +3,7 @@ export
 
 K ?= 5
 
-.PHONY: up down demo demo-ingest demo-ingest-sample mock extract ingest search server web evaluate test vet
+.PHONY: up down demo demo-ingest demo-ingest-sample mock extract ingest search sections server web evaluate test vet
 
 # PDF なしで試す: data/sample の短いサンプル文書（自作）を取り込む。Voyage の API キーは必要
 demo-ingest-sample:
@@ -43,6 +43,10 @@ ingest:
 search:
 	@test -n "$(Q)" || { echo 'Q="要件テキスト" を指定してください'; exit 1; }
 	cd backend && go run ./cmd/search -k $(K) "$(Q)"
+
+# 取り込み済みの見出し（section）を柱ごとに一覧表示する。評価ケースの期待値を決めるときに使う
+sections:
+	cd backend && go run ./cmd/sections
 
 # API サーバー（要 ANTHROPIC_API_KEY / CLAUDE_MODEL）
 server:

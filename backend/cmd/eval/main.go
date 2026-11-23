@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/Code0716/aws-arch-rag/backend/internal/config"
 	"github.com/Code0716/aws-arch-rag/backend/internal/embed"
@@ -26,14 +29,23 @@ func main() {
 
 func run() error {
 	casesPath := flag.String("cases", "../data/eval/cases.yaml", "評価ケースの YAML")
-	k := flag.Int("k", 5, "recall@k の k")
+	kFlag := flag.String("k", "5", "recall@k の k。カンマ区切りで複数指定できる（例: 3,5,10）")
 	label := flag.String("label", "baseline", "この実行のラベル（例: chunk512-overlap64）。改善前後の比較用")
 	doGenerate := flag.Bool("generate", false, "生成も実行して出力品質を評価する（Claude の課金が発生する）")
 	flag.Parse()
 
-	cases, err := evaluate.LoadCases(*casesPath)
+	ks, err := parseKs(*kFlag)
 	if err != nil {
 		return err
+	}
+	maxK := ks[len(ks)-1]
+
+	cases, warnings, err := evaluate.LoadCases(*casesPath)
+	if err != nil {
+		return err
+	}
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w)
 	}
 
 	var cfg config.Config
@@ -67,12 +79,12 @@ func run() error {
 
 	results := make([]evaluate.CaseResult, 0, len(cases))
 	for _, c := range cases {
-		res, err := retriever.Search(ctx, c.Requirements, *k)
+		// 検索は最大の k で1回だけ行い、各 k は上位から切り出して採点する
+		res, err := retriever.Search(ctx, c.Requirements, maxK)
 		if err != nil {
 			return fmt.Errorf("case %s: %w", c.ID, err)
 		}
-		recall, found, total := evaluate.RecallAtK(c.Expect, res.Hits)
-		r := evaluate.CaseResult{ID: c.ID, Recall: recall, Found: found, Total: total}
+		r := evaluate.Score(c, res.Hits, ks)
 
 		if gen != nil {
 			r.Generated = true
@@ -88,6 +100,20 @@ func run() error {
 		results = append(results, r)
 	}
 
-	evaluate.WriteMarkdown(os.Stdout, *label, *k, results)
+	evaluate.WriteMarkdown(os.Stdout, *label, ks, results)
 	return nil
+}
+
+// parseKs は "3,5,10" を昇順・重複なしの []int にする。
+func parseKs(s string) ([]int, error) {
+	var ks []int
+	for _, part := range strings.Split(s, ",") {
+		k, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || k <= 0 {
+			return nil, fmt.Errorf("-k は正の整数のカンマ区切りで指定してください: %q", s)
+		}
+		ks = append(ks, k)
+	}
+	slices.Sort(ks)
+	return slices.Compact(ks), nil
 }

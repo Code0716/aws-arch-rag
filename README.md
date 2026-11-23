@@ -134,12 +134,32 @@ make web      # http://localhost:5173
 
 ### 評価
 
-`data/eval/cases.yaml` の各ケース（要件と、上位 k 件に入ってほしい柱・見出し）に対して recall@k を計算し、Markdown の表で出力します。
+`data/eval/cases.yaml` の各ケース（要件と、上位 k 件に入ってほしい**見出し**・柱）に対して recall@k を計算し、Markdown の表で出力します。
 
 ```bash
-make evaluate LABEL=baseline                 # 検索のみ（Voyage の課金のみ）
-make evaluate LABEL=baseline GENERATE=1      # 出力品質も評価（Claude の課金あり）
+make sections                                # 取り込み済みの見出しを柱ごとに一覧（cases.yaml の期待値を決める材料）
+make evaluate LABEL=baseline                 # 検索のみ（Voyage の課金のみ）。k=5
+make evaluate LABEL=baseline K=3,5,10        # 複数の k をまとめて出す
+make evaluate LABEL=baseline GENERATE=1      # 出力品質も評価（Claude の課金あり。生成には最大の k の検索結果を使う）
 ```
+
+#### 指標
+
+| 指標 | 意味 |
+|---|---|
+| **見出し recall@k**（主） | 期待した見出し（`expect.sections`）のうち、上位 k 件の見出しに現れた割合。見出しは大文字小文字を無視した部分一致 |
+| 見出し MRR | 期待した見出しのどれかが**最初に現れた順位**の逆数（現れなければ 0）の平均 |
+| 柱 recall@k（参考） | 期待した柱（`expect.pillars`）のうち、上位 k 件に現れた割合 |
+
+表は見出し recall を左、柱 recall を右に並べます。`sections` が空のケースは見出し recall・MRR の対象外（表では `-`、起動時に警告）です。
+
+#### なぜ見出し単位にしたか
+
+最初は期待値がほぼ柱単位でした。柱は6本しかないので、上位5件を取ればほとんどのケースでどれかの柱が当たり、recall@k が最初から 1.0 近くに張り付きます。これではチャンクサイズや k を変えても差が見えず、改善を測れません。そこで、「その要件ならこの見出しの内容が必要」という粒度（見出し）に変え、柱は参考指標に下げました。
+
+期待値は**検索結果に合わせて書きません**（出てきた見出しを期待値にすると評価が必ず高く出るため）。人間の判断で決め、`make sections` の一覧から選びます。サンプル文書（`data/sample/`）は見出しが少ないので評価には使いません。
+
+> baseline の見出し recall@5 は、実際の WAF 文書を取り込み、`cases.yaml` に `sections` を書いたあとに測って、ここに記入します（未計測）。
 
 `GENERATE=1` では、次も確認します。
 

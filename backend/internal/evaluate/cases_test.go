@@ -4,7 +4,7 @@ import "testing"
 
 // data/eval/cases.yaml が読み込めて、ID の重複や不正な柱名が無いこと。
 func TestRepositoryCasesAreValid(t *testing.T) {
-	cases, err := LoadCases("../../../data/eval/cases.yaml")
+	cases, _, err := LoadCases("../../../data/eval/cases.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
