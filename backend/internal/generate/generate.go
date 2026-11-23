@@ -65,6 +65,9 @@ type Generator struct {
 // ErrRefused はモデルが応答を拒否した場合のエラー。
 var ErrRefused = errors.New("model refused the request")
 
+// ErrParse は LLM の出力を構成案として読み取れなかった場合のエラー。
+var ErrParse = errors.New("failed to parse LLM output")
+
 // Generate は hits を根拠として構成案を生成し、存在しない chunk_ids を除外して返す。
 func (g *Generator) Generate(ctx context.Context, requirements string, hits []store.Hit, onText func(string)) (Proposal, Usage, error) {
 	start := time.Now()
@@ -109,15 +112,15 @@ func ParseProposal(text string) (Proposal, error) {
 	start := strings.Index(text, "{")
 	end := strings.LastIndex(text, "}")
 	if start < 0 || end <= start {
-		return Proposal{}, errors.New("LLM output has no JSON object")
+		return Proposal{}, fmt.Errorf("%w: no JSON object", ErrParse)
 	}
 	var p Proposal
 	dec := json.NewDecoder(strings.NewReader(text[start : end+1]))
 	if err := dec.Decode(&p); err != nil {
-		return Proposal{}, fmt.Errorf("LLM output is not valid JSON: %w", err)
+		return Proposal{}, fmt.Errorf("%w: invalid JSON: %v", ErrParse, err)
 	}
 	if strings.TrimSpace(p.Summary) == "" || strings.TrimSpace(p.Mermaid) == "" {
-		return Proposal{}, errors.New("LLM output is missing summary or mermaid")
+		return Proposal{}, fmt.Errorf("%w: missing summary or mermaid", ErrParse)
 	}
 	return p, nil
 }
