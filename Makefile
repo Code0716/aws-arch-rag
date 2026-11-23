@@ -3,7 +3,7 @@ export
 
 K ?= 5
 
-.PHONY: up down extract ingest search server test vet
+.PHONY: up down extract ingest search server web evaluate test vet
 
 up:
 	docker compose up -d --wait db
@@ -31,6 +31,14 @@ search:
 # API サーバー（要 ANTHROPIC_API_KEY / CLAUDE_MODEL）
 server:
 	cd backend && go run ./cmd/server
+
+# フロント開発サーバー（:5173、/api は :8080 へ中継）
+web:
+	cd frontend && pnpm install && pnpm dev
+
+# 検索評価（recall@k）。LABEL は改善前後の比較用。GENERATE=1 で出力品質も評価（Claude の課金あり）
+evaluate:
+	cd backend && go run ./cmd/eval -k $(K) -label "$(or $(LABEL),baseline)" $(if $(GENERATE),-generate)
 
 vet:
 	cd backend && go vet ./...

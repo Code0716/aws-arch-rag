@@ -1,0 +1,100 @@
+:root {
+  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  color: #1f2933;
+}
+body {
+  margin: 0;
+  background: #f7f8fa;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px;
+}
+main,
+.panel {
+  background: #fff;
+  border: 1px solid #e4e7eb;
+  border-radius: 8px;
+  padding: 20px;
+}
+.panel {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+h1 {
+  font-size: 1.4rem;
+  margin-top: 0;
+}
+h2 {
+  font-size: 1.1rem;
+  margin-top: 28px;
+}
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  font: inherit;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+main > button {
+  margin-top: 8px;
+  padding: 8px 16px;
+}
+.muted {
+  color: #7b8794;
+}
+.error {
+  color: #b42318;
+}
+.pillar {
+  display: inline-block;
+  background: #e8f1ff;
+  color: #1d4ed8;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+}
+.cite {
+  border: 1px solid #1d4ed8;
+  color: #1d4ed8;
+  background: #fff;
+  border-radius: 4px;
+  padding: 0 6px;
+  margin-right: 4px;
+}
+.close {
+  float: right;
+  border: none;
+  background: none;
+  font-size: 1.2rem;
+}
+.chunk-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.mermaid {
+  overflow-x: auto;
+}
+.mermaid-fallback pre {
+  background: #f1f3f5;
+  padding: 12px;
+  overflow-x: auto;
+}
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .panel {
+    position: static;
+  }
+}
