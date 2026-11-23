@@ -37,16 +37,15 @@ type Rationale struct {
 
 // LLMResult は LLM 呼び出しの結果と運用ログ用の計測値。
 type LLMResult struct {
-	Text string
-	// ToolInput は submit_proposal ツールの入力 JSON。
-	ToolInput    []byte
+	// Text は応答テキスト。output_config.format により、スキーマに適合する JSON 1つになる。
+	Text         string
 	InputTokens  int
 	OutputTokens int
 	Model        string
 	StopReason   string
 }
 
-// LLM は生成モデルの呼び出し。onText にはストリーミング中の出力断片（ツール入力 JSON の断片を含む）が渡る。
+// LLM は生成モデルの呼び出し。onText にはストリーミング中のテキスト断片（JSON の一部）が渡る。
 type LLM interface {
 	Stream(ctx context.Context, system, user string, onText func(string)) (LLMResult, error)
 }
@@ -91,7 +90,7 @@ func (g *Generator) Generate(ctx context.Context, requirements string, hits []st
 		return Proposal{}, usage, errors.New("LLM output was truncated (max_tokens)")
 	}
 
-	p, err := ParseProposal(res.ToolInput)
+	p, err := ParseProposal([]byte(res.Text))
 	if err != nil {
 		return Proposal{}, usage, err
 	}
@@ -109,10 +108,10 @@ func (g *Generator) Generate(ctx context.Context, requirements string, hits []st
 	return p, usage, nil
 }
 
-// ParseProposal は submit_proposal ツールの入力 JSON を Proposal にして、必須項目を検証する。
+// ParseProposal は構造化出力の JSON を Proposal にして、必須項目を検証する。
 func ParseProposal(input []byte) (Proposal, error) {
 	if len(input) == 0 {
-		return Proposal{}, fmt.Errorf("%w: %s ツールが呼ばれていない", ErrParse, ToolName)
+		return Proposal{}, fmt.Errorf("%w: 応答が空", ErrParse)
 	}
 	var p Proposal
 	if err := json.Unmarshal(input, &p); err != nil {

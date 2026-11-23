@@ -1,19 +1,14 @@
 package generate
 
-// ToolName は構成案を提出させるツールの名前。
-const ToolName = "submit_proposal"
-
 // Pillars は Well-Architected の6本の柱。スキーマの enum と検証で共有する。
 var Pillars = []string{
 	"operational-excellence", "security", "reliability",
 	"performance-efficiency", "cost-optimization", "sustainability",
 }
 
-const toolDescription = "システム要件に対する AWS 構成案を提出する。回答は必ずこのツールの入力として返す。"
-
-// proposalSchema は Proposal と同じ構造の JSON スキーマ（strict ツール用）。
-// strict では全 object に additionalProperties:false と required が必要。
-func proposalSchema() (properties map[string]any, required []string) {
+// proposalSchema は Proposal と同じ構造の JSON スキーマ（output_config.format 用）。
+// 構造化出力では全 object に additionalProperties:false と required が必要。
+func proposalSchema() map[string]any {
 	pillars := make([]any, len(Pillars))
 	for i, p := range Pillars {
 		pillars[i] = p
@@ -23,7 +18,7 @@ func proposalSchema() (properties map[string]any, required []string) {
 		return map[string]any{"type": "array", "description": desc, "items": map[string]any{"type": "string"}}
 	}
 
-	properties = map[string]any{
+	properties := map[string]any{
 		"summary": str("構成の要約（日本語）"),
 		"components": map[string]any{
 			"type":        "array",
@@ -60,6 +55,10 @@ func proposalSchema() (properties map[string]any, required []string) {
 		"concerns":  strList("懸念点（日本語）"),
 		"questions": strList("追加で確認したい質問（日本語）"),
 	}
-	required = []string{"summary", "components", "mermaid", "rationale", "concerns", "questions"}
-	return properties, required
+	return map[string]any{
+		"type":                 "object",
+		"properties":           properties,
+		"required":             []any{"summary", "components", "mermaid", "rationale", "concerns", "questions"},
+		"additionalProperties": false,
+	}
 }

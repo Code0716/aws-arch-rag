@@ -7,9 +7,11 @@ import (
 	"testing"
 )
 
-// strict ツールでは、全 object に additionalProperties:false と、全プロパティの required が要る。
+// 構造化出力（output_config.format）では、全 object に additionalProperties:false と、全プロパティの required が要る。
 func TestProposalSchemaIsStrictCompatible(t *testing.T) {
-	props, required := proposalSchema()
+	schema := proposalSchema()
+	props := schema["properties"].(map[string]any)
+	required := schema["required"].([]any)
 	if _, err := json.Marshal(props); err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +21,7 @@ func TestProposalSchemaIsStrictCompatible(t *testing.T) {
 	for i := 0; i < rt.NumField(); i++ {
 		want = append(want, rt.Field(i).Tag.Get("json"))
 	}
-	if !slices.Equal(slices.Sorted(slices.Values(required)), slices.Sorted(slices.Values(want))) {
+	if !slices.Equal(sortedStrings(required), slices.Sorted(slices.Values(want))) {
 		t.Errorf("required = %v, want %v", required, want)
 	}
 	for _, name := range want {
@@ -47,13 +49,20 @@ func TestProposalSchemaIsStrictCompatible(t *testing.T) {
 			check(path+"[]", items)
 		}
 	}
-	for k, v := range props {
-		check(k, v.(map[string]any))
-	}
+	check("root", schema)
 
 	// pillar の enum は Pillars と同じ
 	pillar := props["rationale"].(map[string]any)["items"].(map[string]any)["properties"].(map[string]any)["pillar"].(map[string]any)
 	if got := pillar["enum"].([]any); len(got) != len(Pillars) {
 		t.Errorf("pillar enum = %v, want %v", got, Pillars)
 	}
+}
+
+func sortedStrings(in []any) []string {
+	out := make([]string, len(in))
+	for i, v := range in {
+		out[i] = v.(string)
+	}
+	slices.Sort(out)
+	return out
 }

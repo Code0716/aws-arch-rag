@@ -26,23 +26,14 @@ func NewAnthropic(apiKey, model string) *Anthropic {
 }
 
 func (a *Anthropic) Stream(ctx context.Context, system, user string, onText func(string)) (LLMResult, error) {
-	props, required := proposalSchema()
 	stream := a.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(a.model),
 		MaxTokens: a.maxTokens,
 		System:    []anthropic.TextBlockParam{{Text: system}},
-		// 現行モデル（claude-opus-5-5 等）は tool_choice の強制指定が 400 になるため auto のまま使う。
-		// strict: true でツール入力のスキーマ適合を保証し、呼ばれなかった場合は ParseProposal 側でエラーにする。
-		Tools: []anthropic.ToolUnionParam{{OfTool: &anthropic.ToolParam{
-			Name:        ToolName,
-			Description: anthropic.String(toolDescription),
-			Strict:      anthropic.Bool(true),
-			InputSchema: anthropic.ToolInputSchemaParam{
-				Properties:  props,
-				Required:    required,
-				ExtraFields: map[string]any{"additionalProperties": false},
-			},
-		}}},
+		// output_config.format（JSON outputs）で、応答テキストを proposalSchema に適合する JSON に制約する。
+		OutputConfig: anthropic.OutputConfigParam{
+			Format: anthropic.JSONOutputFormatParam{Schema: proposalSchema()},
+		},
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(user)),
 		},
@@ -62,24 +53,11 @@ func (a *Anthropic) Stream(ctx context.Context, system, user string, onText func
 				if onText != nil {
 					onText(dd.Text)
 				}
-			case anthropic.InputJSONDelta:
-				// ツール入力 JSON の断片。進み具合の通知にだけ使う。
-				if onText != nil {
-					onText(dd.PartialJSON)
-				}
 			}
-		}
-	}
-	var toolInput []byte
-	for _, block := range msg.Content {
-		if tu, ok := block.AsAny().(anthropic.ToolUseBlock); ok && tu.Name == ToolName {
-			toolInput = []byte(tu.Input)
-			break
 		}
 	}
 	res := LLMResult{
 		Text:         text.String(),
-		ToolInput:    toolInput,
 		InputTokens:  int(msg.Usage.InputTokens),
 		OutputTokens: int(msg.Usage.OutputTokens),
 		Model:        string(msg.Model),

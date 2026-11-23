@@ -21,7 +21,7 @@ type fakeLLM struct {
 func (f *fakeLLM) Stream(_ context.Context, system, user string, onText func(string)) (LLMResult, error) {
 	f.system, f.user = system, user
 	if onText != nil {
-		onText(string(f.res.ToolInput))
+		onText(f.res.Text)
 	}
 	return f.res, f.err
 }
@@ -34,7 +34,7 @@ const validJSON = `{"summary":"s","components":[{"name":"ALB","role":"r"}],"merm
 "rationale":[{"pillar":"reliability","text":"t","chunk_ids":[1,999,2]}],"concerns":["c"],"questions":["q"]}`
 
 func TestGenerateDropsUnknownChunkIDs(t *testing.T) {
-	llm := &fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), InputTokens: 100, OutputTokens: 50, Model: "m", StopReason: "end_turn"}}
+	llm := &fakeLLM{res: LLMResult{Text: validJSON, InputTokens: 100, OutputTokens: 50, Model: "m", StopReason: "end_turn"}}
 	hits := []store.Hit{{ID: 1, Pillar: "reliability", Section: "A", Content: "x"}, {ID: 2, Content: "y"}}
 
 	p, usage, err := newGen(llm).Generate(context.Background(), "req", hits, nil)
@@ -77,15 +77,8 @@ func TestParseProposalAcceptsValidInput(t *testing.T) {
 	}
 }
 
-func TestGenerateAcceptsToolUseStopReason(t *testing.T) {
-	llm := &fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), StopReason: "tool_use"}}
-	if _, _, err := newGen(llm).Generate(context.Background(), "r", nil, nil); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestGenerateFailsWhenToolNotCalled(t *testing.T) {
-	llm := &fakeLLM{res: LLMResult{Text: "文章だけ", StopReason: "end_turn"}}
+func TestGenerateFailsOnEmptyOutput(t *testing.T) {
+	llm := &fakeLLM{res: LLMResult{Text: "", StopReason: "end_turn"}}
 	if _, _, err := newGen(llm).Generate(context.Background(), "r", nil, nil); !errors.Is(err, ErrParse) {
 		t.Errorf("err = %v, want ErrParse", err)
 	}
@@ -96,14 +89,14 @@ func TestGenerateRefusalAndTruncation(t *testing.T) {
 	if !errors.Is(err, ErrRefused) {
 		t.Errorf("err = %v, want ErrRefused", err)
 	}
-	_, _, err = newGen(&fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), StopReason: "max_tokens"}}).Generate(context.Background(), "r", nil, nil)
+	_, _, err = newGen(&fakeLLM{res: LLMResult{Text: validJSON, StopReason: "max_tokens"}}).Generate(context.Background(), "r", nil, nil)
 	if err == nil {
 		t.Error("expected error on max_tokens")
 	}
 }
 
 func TestPromptIncludesChunkIDsAndRequirements(t *testing.T) {
-	llm := &fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), StopReason: "end_turn"}}
+	llm := &fakeLLM{res: LLMResult{Text: validJSON, StopReason: "end_turn"}}
 	hits := []store.Hit{{ID: 42, Pillar: "security", Section: `Say "hi"`, Content: "body"}}
 	if _, _, err := newGen(llm).Generate(context.Background(), "ECサイト", hits, nil); err != nil {
 		t.Fatal(err)
