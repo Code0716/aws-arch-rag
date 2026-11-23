@@ -10,7 +10,7 @@
 
 - [ ] **Phase 1: 取り込みと検索（CLI のみ）** ← 実装済み・動作確認待ち
 - [ ] **Phase 2: 生成（Claude・JSON 出力・引用検証）と API（SSE）** ← 実装済み・実 API での動作確認待ち
-- [ ] Phase 3: UI（React）・評価（recall@k）・改善前後の比較
+- [ ] **Phase 3: UI（React）・評価（recall@k）・改善前後の比較** ← UI と評価 CLI は実装済み。実データでの評価・改善前後の比較・デモ動画が未了
 
 ## アーキテクチャ（Phase 1）
 
@@ -56,6 +56,49 @@ make ingest
 make search Q="月間10万PVのECサイト。商品画像のアップロードあり。可用性を重視、予算は抑えたい。"
 ```
 
+### Docker で一括起動（デモ用）
+
+DB・API・フロントをまとめて起動できます。Go や Node をインストールしなくても動きます（PDF のテキスト化 `make extract` だけはホストの poppler を使います）。
+
+```bash
+cp .env.example .env     # VOYAGE_API_KEY / ANTHROPIC_API_KEY を設定（CLAUDE_MODEL は例のまま可）
+make extract             # data/raw の PDF を txt に
+make demo                # = docker compose up -d --build
+make demo-ingest         # data/raw の文書を取り込む（初回のみ。再実行しても重複しない）
+open http://localhost:3000
+```
+
+| サービス | 役割 | ポート |
+|---|---|---|
+| `db` | PostgreSQL + pgvector | 5432 |
+| `migrate` | マイグレーション（起動時に1回実行して終了） | - |
+| `api` | Go の API サーバー | 8081（`API_PORT` で変更可。`make server` でホスト実行する場合は 8080） |
+| `web` | フロント（nginx。`/api` を `api` へ中継） | 3000 |
+
+- `.env` に `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` が無いと `api` は起動時にエラーで終了します（`docker compose logs api` で確認）。
+- 停止は `make down`。DB のデータは `pgdata` ボリュームに残ります。
+
+### キー無しで画面だけ確認する（モック API）
+
+API キーも DB も使わず、固定のデータを返すモック API で画面を確認できます。実際の検索・生成は行いません。
+
+```bash
+make mock    # 別ターミナルで。:8080 でモック API が起動（SSE の流れ方は本物と同じ）
+make web     # http://localhost:5173
+```
+
+### PDF なしで試す（サンプル文書）
+
+`data/sample/` に、6 本の柱それぞれの短い英文サンプルがあります。これは AWS の文書ではなく、一般的な設計の考え方をこのリポジトリ用にまとめたものです。PDF を用意せずに、取り込みから検索・生成までの流れを試せます（Voyage / Anthropic の API キーは必要です）。
+
+```bash
+make demo                  # DB・API・フロントを起動
+make demo-ingest-sample    # サンプルを取り込む
+open http://localhost:3000
+```
+
+実際の評価（recall@k など）は、サンプルではなく AWS 公式の文書で行ってください。
+
 ### API サーバー（Phase 2）
 
 `.env` に `ANTHROPIC_API_KEY` と `CLAUDE_MODEL`（例: `claude-opus-5-5`）を設定して起動します。
@@ -74,6 +117,32 @@ curl localhost:8080/api/chunks/12
 
 - LLM が返した `chunk_ids` のうち、検索で渡していないものは除外され、ログ（`dropped_chunk_ids`）に残ります。
 - リクエストごとに、検索時間・LLM の入出力トークン数・レイテンシ・モデル名を slog（JSON）で出力します。
+
+### 画面（Phase 3）
+
+```bash
+make server   # 別ターミナルで API を起動
+make web      # http://localhost:5173
+```
+
+要件を入力すると、構成図（Mermaid。描画に失敗したらコードを表示）・柱ごとの根拠・懸念点・追加の質問が表示されます。根拠の `[12]` のような引用をクリックすると、元のチャンクが右側に表示されます。
+
+### 評価
+
+`data/eval/cases.yaml` の各ケース（要件と、上位 k 件に入ってほしい柱・見出し）に対して recall@k を計算し、Markdown の表で出力します。
+
+```bash
+make evaluate LABEL=baseline                 # 検索のみ（Voyage の課金のみ）
+make evaluate LABEL=baseline GENERATE=1      # 出力品質も評価（Claude の課金あり）
+```
+
+`GENERATE=1` では、次も確認します。
+
+- JSON がスキーマどおりか（柱名の妥当性、必須項目）
+- Mermaid の簡易構文チェック（先頭の宣言・括弧の対応・エッジの有無）。厳密な構文検証ではありません
+- 存在しない引用 ID が返されていないか
+
+チャンクサイズなどを変えた前後は、`ingest` を `-max-tokens` / `-overlap` 付きで再取り込みし、`LABEL` を変えて同じ表を並べて比較します。
 
 ### 取り込む文書
 

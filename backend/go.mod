@@ -3,13 +3,14 @@ module github.com/Code0716/aws-arch-rag/backend
 go 1.27.1
 
 require (
+	github.com/anthropics/anthropic-sdk-go/v2 v2.13.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/pgvector/pgvector-go v0.4.1
 	github.com/pgvector/pgvector-go/pgx v0.4.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/anthropics/anthropic-sdk-go/v2 v2.13.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect

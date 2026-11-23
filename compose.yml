@@ -28,5 +28,51 @@ services:
       - "-database=postgres://rag:rag@db:5432/rag?sslmode=disable"
       - "up"
 
+  # API サーバー。.env の VOYAGE_API_KEY / ANTHROPIC_API_KEY / CLAUDE_MODEL を使う
+  api:
+    build: ./backend
+    entrypoint: ["/app/server"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://rag:rag@db:5432/rag?sslmode=disable
+      ADDR: ":8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      # ホスト側のポートは API_PORT で変更できる（フロントは nginx 経由なので通常は不要。curl 用）
+      - "${API_PORT:-8081}:8080"
+
+  # フロント（nginx）。/api は api サービスへ中継する
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+
+  # 文書の取り込み。通常の up では起動しない:  docker compose run --rm ingest
+  ingest:
+    profiles: ["tools"]
+    build: ./backend
+    entrypoint: ["/app/ingest", "-dir", "/data/raw"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://rag:rag@db:5432/rag?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./data/raw:/data/raw:ro
+      - ./data/sample:/data/sample:ro
+
 volumes:
   pgdata:
