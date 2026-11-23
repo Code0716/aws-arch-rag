@@ -5,7 +5,7 @@
 # 注意:
 # - 期待値は「その要件なら、この柱の記述が検索で出てほしい」という人間の判断です。
 #   正解データではなく、検索の改善（チャンクサイズ・k など）を前後で比べるための物差しです。
-# - sections は取り込んだ文書の実際の見出しに依存します。`make search` で見出しを確認して追加してください。
+# - sections は取り込んだ文書の実際の見出しに依存します。`make sections` で見出しの一覧を確認して追加してください（検索結果を見て期待値を決めないこと）。
 #   （現状は、見出しに依存しない pillars 中心の期待値です）
 # - 柱の名前: operational-excellence / security / reliability / performance-efficiency /
 #   cost-optimization / sustainability

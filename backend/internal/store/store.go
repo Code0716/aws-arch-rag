@@ -36,6 +36,13 @@ type Hit struct {
 	Content string
 }
 
+// SectionCount は柱・見出しごとのチャンク数。
+type SectionCount struct {
+	Pillar  string
+	Section string
+	Chunks  int
+}
+
 func New(ctx context.Context, url string) (*Store, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -154,4 +161,23 @@ func (s *Store) Search(ctx context.Context, vec []float32, k int) ([]Hit, error)
 		hits = append(hits, h)
 	}
 	return hits, rows.Err()
+}
+
+// Sections は柱・見出しごとのチャンク数を、柱 → 見出しの順で返す。
+func (s *Store) Sections(ctx context.Context) ([]SectionCount, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT pillar, section, count(*) FROM chunks GROUP BY pillar, section ORDER BY pillar, section`)
+	if err != nil {
+		return nil, fmt.Errorf("list sections: %w", err)
+	}
+	defer rows.Close()
+	var out []SectionCount
+	for rows.Next() {
+		var c SectionCount
+		if err := rows.Scan(&c.Pillar, &c.Section, &c.Chunks); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }

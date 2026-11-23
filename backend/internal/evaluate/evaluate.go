@@ -27,52 +27,95 @@ type Expect struct {
 	Sections []string `yaml:"sections"`
 }
 
-// LoadCases は cases.yaml を読み込む。
-func LoadCases(path string) ([]Case, error) {
+// LoadCases は cases.yaml を読み込む。sections が空のケースは、見出し単位の評価ができないので
+// 警告（warnings）として返す（エラーにはしない）。
+func LoadCases(path string) (cases []Case, warnings []string, err error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var cases []Case
 	if err := yaml.Unmarshal(raw, &cases); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	for i, c := range cases {
 		if c.ID == "" || strings.TrimSpace(c.Requirements) == "" {
-			return nil, fmt.Errorf("%s: case %d: id と requirements は必須です", path, i)
+			return nil, nil, fmt.Errorf("%s: case %d: id と requirements は必須です", path, i)
 		}
 		if len(c.Expect.Pillars)+len(c.Expect.Sections) == 0 {
-			return nil, fmt.Errorf("%s: case %q: expect が空です", path, c.ID)
+			return nil, nil, fmt.Errorf("%s: case %q: expect が空です", path, c.ID)
+		}
+		if len(c.Expect.Sections) == 0 {
+			warnings = append(warnings, fmt.Sprintf("case %q: sections が空です（見出し recall の対象外になります）", c.ID))
 		}
 	}
-	return cases, nil
+	return cases, warnings, nil
 }
 
-// RecallAtK は期待項目（柱 + 見出し）のうち、hits に含まれていた割合を返す。
-// 柱は完全一致、見出しは大文字小文字を無視した部分一致で判定する。
-func RecallAtK(e Expect, hits []store.Hit) (recall float64, found, total int) {
-	total = len(e.Pillars) + len(e.Sections)
-	if total == 0 {
-		return 0, 0, 0
-	}
+// Recall は期待項目のうち hits に含まれていた割合。Total が 0 なら期待が無い（評価対象外）。
+type Recall struct {
+	Value float64
+	Found int
+	Total int
+}
+
+// PillarRecall は期待した柱のうち、hits に現れた割合を返す（完全一致）。
+func PillarRecall(e Expect, hits []store.Hit) Recall {
+	r := Recall{Total: len(e.Pillars)}
 	for _, p := range e.Pillars {
-		for _, h := range hits {
-			if h.Pillar == p {
-				found++
-				break
-			}
+		if slices.ContainsFunc(hits, func(h store.Hit) bool { return h.Pillar == p }) {
+			r.Found++
 		}
 	}
+	return r.finish()
+}
+
+// SectionRecall は期待した見出しのうち、hits に現れた割合を返す（大文字小文字を無視した部分一致）。
+func SectionRecall(e Expect, hits []store.Hit) Recall {
+	r := Recall{Total: len(e.Sections)}
 	for _, s := range e.Sections {
-		needle := strings.ToLower(s)
-		for _, h := range hits {
-			if strings.Contains(strings.ToLower(h.Section), needle) {
-				found++
-				break
+		if slices.ContainsFunc(hits, func(h store.Hit) bool { return sectionMatches(h, s) }) {
+			r.Found++
+		}
+	}
+	return r.finish()
+}
+
+func (r Recall) finish() Recall {
+	if r.Total > 0 {
+		r.Value = float64(r.Found) / float64(r.Total)
+	}
+	return r
+}
+
+func sectionMatches(h store.Hit, expected string) bool {
+	return strings.Contains(strings.ToLower(h.Section), strings.ToLower(expected))
+}
+
+// FirstSectionRank は、期待した見出しのどれかが最初に現れた順位（1 始まり）を返す。現れなければ 0。
+func FirstSectionRank(e Expect, hits []store.Hit) int {
+	for i, h := range hits {
+		for _, s := range e.Sections {
+			if sectionMatches(h, s) {
+				return i + 1
 			}
 		}
 	}
-	return float64(found) / float64(total), found, total
+	return 0
+}
+
+// Score は1ケースの検索結果（hits は順位順、通常は最大の k 件）を、各 k で採点する。
+// 見出しの recall を主、柱の recall を参考として別々に計算する。
+func Score(c Case, hits []store.Hit, ks []int) CaseResult {
+	r := CaseResult{ID: c.ID, Ks: ks, HasSections: len(c.Expect.Sections) > 0}
+	for _, k := range ks {
+		top := hits[:min(k, len(hits))]
+		r.Section = append(r.Section, SectionRecall(c.Expect, top))
+		r.Pillar = append(r.Pillar, PillarRecall(c.Expect, top))
+	}
+	if rank := FirstSectionRank(c.Expect, hits); rank > 0 {
+		r.ReciprocalRank = 1 / float64(rank)
+	}
+	return r
 }
 
 // CheckSchema は構成案が期待するスキーマに沿っているかを検証し、問題点を返す。
