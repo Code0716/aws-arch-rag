@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -79,6 +80,7 @@ func run() error {
 			p, usage, err := gen.Generate(ctx, c.Requirements, res.Hits, nil)
 			if err != nil {
 				r.GenerateError = err.Error()
+				r.ParseFailed = errors.Is(err, generate.ErrParse)
 			} else {
 				r.SchemaProblems = evaluate.CheckSchema(p)
 				r.MermaidProblems = evaluate.CheckMermaid(p.Mermaid)

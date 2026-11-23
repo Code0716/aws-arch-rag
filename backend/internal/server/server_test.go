@@ -79,6 +79,9 @@ func TestProposeStreamsEventsInOrder(t *testing.T) {
 	if i1 < 0 || i2 < i1 || i3 < i2 {
 		t.Errorf("unexpected event order:\n%s", body)
 	}
+	if !strings.Contains(body, `"chars":1`) || strings.Contains(body, `"text"`) {
+		t.Errorf("delta must carry only the char count:\n%s", body)
+	}
 	if !strings.Contains(body, `"summary":"sum"`) {
 		t.Errorf("result missing summary:\n%s", body)
 	}

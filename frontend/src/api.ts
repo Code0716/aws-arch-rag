@@ -3,7 +3,7 @@ import type { Chunk, HitMeta, Proposal } from "./types";
 
 export type ProposeHandlers = {
   onRetrieved: (hits: HitMeta[]) => void;
-  onDelta: (text: string) => void;
+  onDelta: (chars: number) => void;
   onResult: (p: Proposal) => void;
   onError: (message: string) => void;
 };
@@ -24,7 +24,7 @@ export async function propose(requirements: string, h: ProposeHandlers, signal?:
   const parser = createSSEParser(({ event, data }) => {
     const payload = JSON.parse(data);
     if (event === "retrieved") h.onRetrieved(payload);
-    else if (event === "delta") h.onDelta(payload.text);
+    else if (event === "delta") h.onDelta(payload.chars);
     else if (event === "result") h.onResult(payload);
     else if (event === "error") h.onError(payload.message);
   });

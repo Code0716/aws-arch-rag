@@ -30,6 +30,10 @@ func (a *Anthropic) Stream(ctx context.Context, system, user string, onText func
 		Model:     anthropic.Model(a.model),
 		MaxTokens: a.maxTokens,
 		System:    []anthropic.TextBlockParam{{Text: system}},
+		// output_config.format（JSON outputs）で、応答テキストを proposalSchema に適合する JSON に制約する。
+		OutputConfig: anthropic.OutputConfigParam{
+			Format: anthropic.JSONOutputFormatParam{Schema: proposalSchema()},
+		},
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(user)),
 		},
@@ -43,10 +47,11 @@ func (a *Anthropic) Stream(ctx context.Context, system, user string, onText func
 			return LLMResult{}, fmt.Errorf("accumulate stream: %w", err)
 		}
 		if d, ok := ev.AsAny().(anthropic.ContentBlockDeltaEvent); ok {
-			if td, ok := d.Delta.AsAny().(anthropic.TextDelta); ok {
-				text.WriteString(td.Text)
+			switch dd := d.Delta.AsAny().(type) {
+			case anthropic.TextDelta:
+				text.WriteString(dd.Text)
 				if onText != nil {
-					onText(td.Text)
+					onText(dd.Text)
 				}
 			}
 		}
