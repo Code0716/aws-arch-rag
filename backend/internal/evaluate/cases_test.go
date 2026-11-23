@@ -1,6 +1,11 @@
 package evaluate
 
-import "testing"
+import (
+	"slices"
+	"testing"
+
+	"github.com/Code0716/aws-arch-rag/backend/internal/generate"
+)
 
 // data/eval/cases.yaml が読み込めて、ID の重複や不正な柱名が無いこと。
 func TestRepositoryCasesAreValid(t *testing.T) {
@@ -18,7 +23,7 @@ func TestRepositoryCasesAreValid(t *testing.T) {
 		}
 		ids[c.ID] = true
 		for _, p := range c.Expect.Pillars {
-			if !validPillars[p] {
+			if !slices.Contains(generate.Pillars, p) {
 				t.Errorf("%s: unknown pillar %q", c.ID, p)
 			}
 		}

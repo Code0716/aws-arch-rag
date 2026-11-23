@@ -21,7 +21,7 @@ type fakeLLM struct {
 func (f *fakeLLM) Stream(_ context.Context, system, user string, onText func(string)) (LLMResult, error) {
 	f.system, f.user = system, user
 	if onText != nil {
-		onText(f.res.Text)
+		onText(string(f.res.ToolInput))
 	}
 	return f.res, f.err
 }
@@ -34,7 +34,7 @@ const validJSON = `{"summary":"s","components":[{"name":"ALB","role":"r"}],"merm
 "rationale":[{"pillar":"reliability","text":"t","chunk_ids":[1,999,2]}],"concerns":["c"],"questions":["q"]}`
 
 func TestGenerateDropsUnknownChunkIDs(t *testing.T) {
-	llm := &fakeLLM{res: LLMResult{Text: validJSON, InputTokens: 100, OutputTokens: 50, Model: "m", StopReason: "end_turn"}}
+	llm := &fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), InputTokens: 100, OutputTokens: 50, Model: "m", StopReason: "end_turn"}}
 	hits := []store.Hit{{ID: 1, Pillar: "reliability", Section: "A", Content: "x"}, {ID: 2, Content: "y"}}
 
 	p, usage, err := newGen(llm).Generate(context.Background(), "req", hits, nil)
@@ -53,18 +53,41 @@ func TestGenerateDropsUnknownChunkIDs(t *testing.T) {
 	}
 }
 
-func TestParseProposalToleratesFencesAndPreamble(t *testing.T) {
-	text := "はい、こちらです。\n```json\n" + validJSON + "\n```\n"
-	if _, err := ParseProposal(text); err != nil {
+func TestParseProposalRejectsBadInput(t *testing.T) {
+	cases := map[string]string{
+		"empty":           "",
+		"not json":        "no json here",
+		"truncated":       `{"summary": `,
+		"missing mermaid": `{"summary":"s"}`,
+		"bad pillar":      `{"summary":"s","mermaid":"flowchart LR\nA-->B","rationale":[{"pillar":"speed","text":"t","chunk_ids":[]}]}`,
+		"empty component": `{"summary":"s","mermaid":"flowchart LR\nA-->B","components":[{"name":"ALB","role":""}]}`,
+	}
+	for name, in := range cases {
+		_, err := ParseProposal([]byte(in))
+		if !errors.Is(err, ErrParse) {
+			t.Errorf("%s: err = %v, want ErrParse", name, err)
+		}
+	}
+}
+
+func TestParseProposalAcceptsValidInput(t *testing.T) {
+	p, err := ParseProposal([]byte(validJSON))
+	if err != nil || p.Summary != "s" {
+		t.Fatalf("p=%+v err=%v", p, err)
+	}
+}
+
+func TestGenerateAcceptsToolUseStopReason(t *testing.T) {
+	llm := &fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), StopReason: "tool_use"}}
+	if _, _, err := newGen(llm).Generate(context.Background(), "r", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestParseProposalRejectsBadOutput(t *testing.T) {
-	for _, text := range []string{"", "no json here", `{"summary":"s"}`, `{"summary": `} {
-		if _, err := ParseProposal(text); err == nil {
-			t.Errorf("expected error for %q", text)
-		}
+func TestGenerateFailsWhenToolNotCalled(t *testing.T) {
+	llm := &fakeLLM{res: LLMResult{Text: "文章だけ", StopReason: "end_turn"}}
+	if _, _, err := newGen(llm).Generate(context.Background(), "r", nil, nil); !errors.Is(err, ErrParse) {
+		t.Errorf("err = %v, want ErrParse", err)
 	}
 }
 
@@ -73,14 +96,14 @@ func TestGenerateRefusalAndTruncation(t *testing.T) {
 	if !errors.Is(err, ErrRefused) {
 		t.Errorf("err = %v, want ErrRefused", err)
 	}
-	_, _, err = newGen(&fakeLLM{res: LLMResult{Text: validJSON, StopReason: "max_tokens"}}).Generate(context.Background(), "r", nil, nil)
+	_, _, err = newGen(&fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), StopReason: "max_tokens"}}).Generate(context.Background(), "r", nil, nil)
 	if err == nil {
 		t.Error("expected error on max_tokens")
 	}
 }
 
 func TestPromptIncludesChunkIDsAndRequirements(t *testing.T) {
-	llm := &fakeLLM{res: LLMResult{Text: validJSON, StopReason: "end_turn"}}
+	llm := &fakeLLM{res: LLMResult{ToolInput: []byte(validJSON), StopReason: "end_turn"}}
 	hits := []store.Hit{{ID: 42, Pillar: "security", Section: `Say "hi"`, Content: "body"}}
 	if _, _, err := newGen(llm).Generate(context.Background(), "ECサイト", hits, nil); err != nil {
 		t.Fatal(err)

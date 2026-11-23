@@ -32,7 +32,7 @@ export function App() {
         requirements,
         {
           onRetrieved: setHits,
-          onDelta: (t) => setReceived((n) => n + t.length),
+          onDelta: (chars) => setReceived((n) => n + chars),
           onResult: setResult,
           onError: setError,
         },

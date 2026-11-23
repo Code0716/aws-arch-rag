@@ -112,7 +112,8 @@ func (s *Server) propose(w http.ResponseWriter, r *http.Request) {
 	emit("retrieved", metas)
 
 	proposal, usage, err := s.Proposer.Generate(r.Context(), in.Requirements, ret.Hits, func(t string) {
-		emit("delta", map[string]string{"text": t})
+		// 断片そのものは JSON の一部で表示に向かないため、進み具合（文字数）だけを流す。
+		emit("delta", map[string]int{"chars": utf8.RuneCountInString(t)})
 	})
 	attrs := []any{
 		"model", usage.Model,

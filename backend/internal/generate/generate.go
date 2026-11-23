@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -36,14 +37,16 @@ type Rationale struct {
 
 // LLMResult は LLM 呼び出しの結果と運用ログ用の計測値。
 type LLMResult struct {
-	Text         string
+	Text string
+	// ToolInput は submit_proposal ツールの入力 JSON。
+	ToolInput    []byte
 	InputTokens  int
 	OutputTokens int
 	Model        string
 	StopReason   string
 }
 
-// LLM は生成モデルの呼び出し。onText にはストリーミング中のテキスト断片が渡る。
+// LLM は生成モデルの呼び出し。onText にはストリーミング中の出力断片（ツール入力 JSON の断片を含む）が渡る。
 type LLM interface {
 	Stream(ctx context.Context, system, user string, onText func(string)) (LLMResult, error)
 }
@@ -88,7 +91,7 @@ func (g *Generator) Generate(ctx context.Context, requirements string, hits []st
 		return Proposal{}, usage, errors.New("LLM output was truncated (max_tokens)")
 	}
 
-	p, err := ParseProposal(res.Text)
+	p, err := ParseProposal(res.ToolInput)
 	if err != nil {
 		return Proposal{}, usage, err
 	}
@@ -106,21 +109,27 @@ func (g *Generator) Generate(ctx context.Context, requirements string, hits []st
 	return p, usage, nil
 }
 
-// ParseProposal は LLM 出力から JSON を取り出して Proposal にする。
-// コードフェンスや前後の説明文が付いていても、最初の { から最後の } までを読む。
-func ParseProposal(text string) (Proposal, error) {
-	start := strings.Index(text, "{")
-	end := strings.LastIndex(text, "}")
-	if start < 0 || end <= start {
-		return Proposal{}, fmt.Errorf("%w: no JSON object", ErrParse)
+// ParseProposal は submit_proposal ツールの入力 JSON を Proposal にして、必須項目を検証する。
+func ParseProposal(input []byte) (Proposal, error) {
+	if len(input) == 0 {
+		return Proposal{}, fmt.Errorf("%w: %s ツールが呼ばれていない", ErrParse, ToolName)
 	}
 	var p Proposal
-	dec := json.NewDecoder(strings.NewReader(text[start : end+1]))
-	if err := dec.Decode(&p); err != nil {
+	if err := json.Unmarshal(input, &p); err != nil {
 		return Proposal{}, fmt.Errorf("%w: invalid JSON: %v", ErrParse, err)
 	}
 	if strings.TrimSpace(p.Summary) == "" || strings.TrimSpace(p.Mermaid) == "" {
 		return Proposal{}, fmt.Errorf("%w: missing summary or mermaid", ErrParse)
+	}
+	for i, c := range p.Components {
+		if strings.TrimSpace(c.Name) == "" || strings.TrimSpace(c.Role) == "" {
+			return Proposal{}, fmt.Errorf("%w: components[%d] に name/role が無い", ErrParse, i)
+		}
+	}
+	for i, r := range p.Rationale {
+		if !slices.Contains(Pillars, r.Pillar) {
+			return Proposal{}, fmt.Errorf("%w: rationale[%d].pillar が不正: %q", ErrParse, i, r.Pillar)
+		}
 	}
 	return p, nil
 }
