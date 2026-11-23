@@ -56,6 +56,28 @@ make ingest
 make search Q="月間10万PVのECサイト。商品画像のアップロードあり。可用性を重視、予算は抑えたい。"
 ```
 
+### Docker で一括起動（デモ用）
+
+DB・API・フロントをまとめて起動できます。Go や Node をインストールしなくても動きます（PDF のテキスト化 `make extract` だけはホストの poppler を使います）。
+
+```bash
+cp .env.example .env     # VOYAGE_API_KEY / ANTHROPIC_API_KEY を設定（CLAUDE_MODEL は例のまま可）
+make extract             # data/raw の PDF を txt に
+make demo                # = docker compose up -d --build
+make demo-ingest         # data/raw の文書を取り込む（初回のみ。再実行しても重複しない）
+open http://localhost:3000
+```
+
+| サービス | 役割 | ポート |
+|---|---|---|
+| `db` | PostgreSQL + pgvector | 5432 |
+| `migrate` | マイグレーション（起動時に1回実行して終了） | - |
+| `api` | Go の API サーバー | 8080 |
+| `web` | フロント（nginx。`/api` を `api` へ中継） | 3000 |
+
+- `.env` に `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` が無いと `api` は起動時にエラーで終了します（`docker compose logs api` で確認）。
+- 停止は `make down`。DB のデータは `pgdata` ボリュームに残ります。
+
 ### API サーバー（Phase 2）
 
 `.env` に `ANTHROPIC_API_KEY` と `CLAUDE_MODEL`（例: `claude-opus-5-5`）を設定して起動します。

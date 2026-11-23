@@ -3,7 +3,15 @@ export
 
 K ?= 5
 
-.PHONY: up down extract ingest search server web evaluate test vet
+.PHONY: up down demo demo-ingest extract ingest search server web evaluate test vet
+
+# DB + API + フロントを docker compose で一括起動（http://localhost:3000）
+demo:
+	docker compose up -d --build
+
+# data/raw の文書を compose 上で取り込む（make demo の後に実行）
+demo-ingest:
+	docker compose run --rm --build ingest
 
 up:
 	docker compose up -d --wait db
