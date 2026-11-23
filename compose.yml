@@ -44,7 +44,8 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "8080:8080"
+      # ホスト側のポートは API_PORT で変更できる（フロントは nginx 経由なので通常は不要。curl 用）
+      - "${API_PORT:-8081}:8080"
 
   # フロント（nginx）。/api は api サービスへ中継する
   web:

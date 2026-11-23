@@ -3,10 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run --dir src"
+  },
+  "pnpm": {
+    "overrides": {
+      "dompurify": "3.4.18"
+    }
   },
   "dependencies": {
     "mermaid": "^12.3.0",

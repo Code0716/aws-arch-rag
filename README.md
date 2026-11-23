@@ -72,7 +72,7 @@ open http://localhost:3000
 |---|---|---|
 | `db` | PostgreSQL + pgvector | 5432 |
 | `migrate` | マイグレーション（起動時に1回実行して終了） | - |
-| `api` | Go の API サーバー | 8080 |
+| `api` | Go の API サーバー | 8081（`API_PORT` で変更可。`make server` でホスト実行する場合は 8080） |
 | `web` | フロント（nginx。`/api` を `api` へ中継） | 3000 |
 
 - `.env` に `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` が無いと `api` は起動時にエラーで終了します（`docker compose logs api` で確認）。
