@@ -2,8 +2,13 @@
 # expect.pillars   : 上位 k 件の中に現れてほしい柱
 # expect.sections  : 上位 k 件の見出しに含まれていてほしい文字列（大文字小文字は無視）
 #
-# 注意: これは最初の下書き（5件）です。sections は取り込み後の実際の見出しを
-# `make search` で確認して調整してください。10〜20件に増やすことを想定しています。
+# 注意:
+# - 期待値は「その要件なら、この柱の記述が検索で出てほしい」という人間の判断です。
+#   正解データではなく、検索の改善（チャンクサイズ・k など）を前後で比べるための物差しです。
+# - sections は取り込んだ文書の実際の見出しに依存します。`make search` で見出しを確認して追加してください。
+#   （現状は、見出しに依存しない pillars 中心の期待値です）
+# - 柱の名前: operational-excellence / security / reliability / performance-efficiency /
+#   cost-optimization / sustainability
 - id: ec-site-availability-cost
   requirements: >-
     月間10万PVのECサイト。商品画像のアップロードあり。可用性を重視、予算は抑えたい。
@@ -34,3 +39,63 @@
     機械学習の学習ジョブを定期実行する。環境負荷とコストの両方を下げたい。
   expect:
     pillars: [sustainability, cost-optimization]
+
+- id: static-site-global
+  requirements: >-
+    海外からも読まれる企業のコーポレートサイト。表示速度を重視し、運用の手間はできるだけかけたくない。
+  expect:
+    pillars: [performance-efficiency, operational-excellence]
+
+- id: saas-multi-tenant
+  requirements: >-
+    BtoB の SaaS（マルチテナント）。テナント間のデータ分離と、特定のテナントの負荷が他に影響しないようにしたい。
+  expect:
+    pillars: [security, reliability]
+
+- id: log-analytics-cost
+  requirements: >-
+    毎日数百GBのアクセスログを蓄積して分析したい。保存コストが膨らまないようにしたい。
+  expect:
+    pillars: [cost-optimization, performance-efficiency]
+
+- id: realtime-chat
+  requirements: >-
+    数万人が同時接続するリアルタイムのチャットサービス。接続が切れても自動で復帰し、遅延を小さくしたい。
+  expect:
+    pillars: [reliability, performance-efficiency]
+
+- id: compliance-audit
+  requirements: >-
+    金融系の社内システム。監査のために、誰がいつ何を変更したかを追跡でき、権限は最小限にしたい。
+  expect:
+    pillars: [security, operational-excellence]
+
+- id: ci-cd-delivery
+  requirements: >-
+    小さなチームで週に何度もリリースしたい。失敗したときにすぐ戻せて、障害の原因を追いやすくしたい。
+  expect:
+    pillars: [operational-excellence, reliability]
+
+- id: data-lake-batch
+  requirements: >-
+    複数のシステムのデータを集めて夜間に集計するデータ基盤。使っていない時間のコストを抑えたい。
+  expect:
+    pillars: [cost-optimization, sustainability]
+
+- id: public-api-ddos
+  requirements: >-
+    一般公開するAPI。不正なアクセスや過剰なリクエストから守りつつ、正規のユーザーには安定して応答したい。
+  expect:
+    pillars: [security, reliability]
+
+- id: mobile-push-notifications
+  requirements: >-
+    数百万ユーザーにプッシュ通知を配信するシステム。配信が集中する時間帯でも遅れず、再送や失敗の扱いを明確にしたい。
+  expect:
+    pillars: [reliability, performance-efficiency]
+
+- id: startup-mvp
+  requirements: >-
+    スタートアップの新規サービスの MVP。まずは最小コストで始め、利用が伸びたら無理なく拡張できるようにしたい。
+  expect:
+    pillars: [cost-optimization, performance-efficiency]
