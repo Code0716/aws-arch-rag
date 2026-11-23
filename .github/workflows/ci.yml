@@ -27,9 +27,8 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      # pnpm のバージョンは package.json の packageManager に従う
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 24
