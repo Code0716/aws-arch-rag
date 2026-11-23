@@ -78,6 +78,27 @@ open http://localhost:3000
 - `.env` に `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` が無いと `api` は起動時にエラーで終了します（`docker compose logs api` で確認）。
 - 停止は `make down`。DB のデータは `pgdata` ボリュームに残ります。
 
+### キー無しで画面だけ確認する（モック API）
+
+API キーも DB も使わず、固定のデータを返すモック API で画面を確認できます。実際の検索・生成は行いません。
+
+```bash
+make mock    # 別ターミナルで。:8080 でモック API が起動（SSE の流れ方は本物と同じ）
+make web     # http://localhost:5173
+```
+
+### PDF なしで試す（サンプル文書）
+
+`data/sample/` に、6 本の柱それぞれの短い英文サンプルがあります。これは AWS の文書ではなく、一般的な設計の考え方をこのリポジトリ用にまとめたものです。PDF を用意せずに、取り込みから検索・生成までの流れを試せます（Voyage / Anthropic の API キーは必要です）。
+
+```bash
+make demo                  # DB・API・フロントを起動
+make demo-ingest-sample    # サンプルを取り込む
+open http://localhost:3000
+```
+
+実際の評価（recall@k など）は、サンプルではなく AWS 公式の文書で行ってください。
+
 ### API サーバー（Phase 2）
 
 `.env` に `ANTHROPIC_API_KEY` と `CLAUDE_MODEL`（例: `claude-opus-5-5`）を設定して起動します。

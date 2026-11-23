@@ -3,7 +3,15 @@ export
 
 K ?= 5
 
-.PHONY: up down demo demo-ingest extract ingest search server web evaluate test vet
+.PHONY: up down demo demo-ingest demo-ingest-sample mock extract ingest search server web evaluate test vet
+
+# PDF なしで試す: data/sample の短いサンプル文書（自作）を取り込む。Voyage の API キーは必要
+demo-ingest-sample:
+	docker compose run --rm --build ingest -dir /data/sample
+
+# API キー・DB なしで画面を確認する（固定データを返すモック API、:8080）。別ターミナルで make web
+mock:
+	cd backend && go run ./cmd/mock
 
 # DB + API + フロントを docker compose で一括起動（http://localhost:3000）
 demo:
