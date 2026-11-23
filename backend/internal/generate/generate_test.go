@@ -53,18 +53,34 @@ func TestGenerateDropsUnknownChunkIDs(t *testing.T) {
 	}
 }
 
-func TestParseProposalToleratesFencesAndPreamble(t *testing.T) {
-	text := "はい、こちらです。\n```json\n" + validJSON + "\n```\n"
-	if _, err := ParseProposal(text); err != nil {
-		t.Fatal(err)
+func TestParseProposalRejectsBadInput(t *testing.T) {
+	cases := map[string]string{
+		"empty":           "",
+		"not json":        "no json here",
+		"truncated":       `{"summary": `,
+		"missing mermaid": `{"summary":"s"}`,
+		"bad pillar":      `{"summary":"s","mermaid":"flowchart LR\nA-->B","rationale":[{"pillar":"speed","text":"t","chunk_ids":[]}]}`,
+		"empty component": `{"summary":"s","mermaid":"flowchart LR\nA-->B","components":[{"name":"ALB","role":""}]}`,
+	}
+	for name, in := range cases {
+		_, err := ParseProposal([]byte(in))
+		if !errors.Is(err, ErrParse) {
+			t.Errorf("%s: err = %v, want ErrParse", name, err)
+		}
 	}
 }
 
-func TestParseProposalRejectsBadOutput(t *testing.T) {
-	for _, text := range []string{"", "no json here", `{"summary":"s"}`, `{"summary": `} {
-		if _, err := ParseProposal(text); err == nil {
-			t.Errorf("expected error for %q", text)
-		}
+func TestParseProposalAcceptsValidInput(t *testing.T) {
+	p, err := ParseProposal([]byte(validJSON))
+	if err != nil || p.Summary != "s" {
+		t.Fatalf("p=%+v err=%v", p, err)
+	}
+}
+
+func TestGenerateFailsOnEmptyOutput(t *testing.T) {
+	llm := &fakeLLM{res: LLMResult{Text: "", StopReason: "end_turn"}}
+	if _, _, err := newGen(llm).Generate(context.Background(), "r", nil, nil); !errors.Is(err, ErrParse) {
+		t.Errorf("err = %v, want ErrParse", err)
 	}
 }
 

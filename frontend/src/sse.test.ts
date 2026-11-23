@@ -9,10 +9,10 @@ function collect() {
 describe("createSSEParser", () => {
   it("イベントを種類とデータに分ける", () => {
     const { events, parser } = collect();
-    parser.push('event: retrieved\ndata: [{"id":1}]\n\nevent: delta\ndata: {"text":"a"}\n\n');
+    parser.push('event: retrieved\ndata: [{"id":1}]\n\nevent: delta\ndata: {"chars":1}\n\n');
     expect(events).toEqual([
       { event: "retrieved", data: '[{"id":1}]' },
-      { event: "delta", data: '{"text":"a"}' },
+      { event: "delta", data: '{"chars":1}' },
     ]);
   });
 

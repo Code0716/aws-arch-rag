@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ type Rationale struct {
 
 // LLMResult は LLM 呼び出しの結果と運用ログ用の計測値。
 type LLMResult struct {
+	// Text は応答テキスト。output_config.format により、スキーマに適合する JSON 1つになる。
 	Text         string
 	InputTokens  int
 	OutputTokens int
@@ -43,7 +45,7 @@ type LLMResult struct {
 	StopReason   string
 }
 
-// LLM は生成モデルの呼び出し。onText にはストリーミング中のテキスト断片が渡る。
+// LLM は生成モデルの呼び出し。onText にはストリーミング中のテキスト断片（JSON の一部）が渡る。
 type LLM interface {
 	Stream(ctx context.Context, system, user string, onText func(string)) (LLMResult, error)
 }
@@ -65,6 +67,9 @@ type Generator struct {
 // ErrRefused はモデルが応答を拒否した場合のエラー。
 var ErrRefused = errors.New("model refused the request")
 
+// ErrParse は LLM の出力を構成案として読み取れなかった場合のエラー。
+var ErrParse = errors.New("failed to parse LLM output")
+
 // Generate は hits を根拠として構成案を生成し、存在しない chunk_ids を除外して返す。
 func (g *Generator) Generate(ctx context.Context, requirements string, hits []store.Hit, onText func(string)) (Proposal, Usage, error) {
 	start := time.Now()
@@ -85,7 +90,7 @@ func (g *Generator) Generate(ctx context.Context, requirements string, hits []st
 		return Proposal{}, usage, errors.New("LLM output was truncated (max_tokens)")
 	}
 
-	p, err := ParseProposal(res.Text)
+	p, err := ParseProposal([]byte(res.Text))
 	if err != nil {
 		return Proposal{}, usage, err
 	}
@@ -103,21 +108,27 @@ func (g *Generator) Generate(ctx context.Context, requirements string, hits []st
 	return p, usage, nil
 }
 
-// ParseProposal は LLM 出力から JSON を取り出して Proposal にする。
-// コードフェンスや前後の説明文が付いていても、最初の { から最後の } までを読む。
-func ParseProposal(text string) (Proposal, error) {
-	start := strings.Index(text, "{")
-	end := strings.LastIndex(text, "}")
-	if start < 0 || end <= start {
-		return Proposal{}, errors.New("LLM output has no JSON object")
+// ParseProposal は構造化出力の JSON を Proposal にして、必須項目を検証する。
+func ParseProposal(input []byte) (Proposal, error) {
+	if len(input) == 0 {
+		return Proposal{}, fmt.Errorf("%w: 応答が空", ErrParse)
 	}
 	var p Proposal
-	dec := json.NewDecoder(strings.NewReader(text[start : end+1]))
-	if err := dec.Decode(&p); err != nil {
-		return Proposal{}, fmt.Errorf("LLM output is not valid JSON: %w", err)
+	if err := json.Unmarshal(input, &p); err != nil {
+		return Proposal{}, fmt.Errorf("%w: invalid JSON: %v", ErrParse, err)
 	}
 	if strings.TrimSpace(p.Summary) == "" || strings.TrimSpace(p.Mermaid) == "" {
-		return Proposal{}, errors.New("LLM output is missing summary or mermaid")
+		return Proposal{}, fmt.Errorf("%w: missing summary or mermaid", ErrParse)
+	}
+	for i, c := range p.Components {
+		if strings.TrimSpace(c.Name) == "" || strings.TrimSpace(c.Role) == "" {
+			return Proposal{}, fmt.Errorf("%w: components[%d] に name/role が無い", ErrParse, i)
+		}
+	}
+	for i, r := range p.Rationale {
+		if !slices.Contains(Pillars, r.Pillar) {
+			return Proposal{}, fmt.Errorf("%w: rationale[%d].pillar が不正: %q", ErrParse, i, r.Pillar)
+		}
 	}
 	return p, nil
 }

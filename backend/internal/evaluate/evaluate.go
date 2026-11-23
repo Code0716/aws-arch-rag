@@ -118,11 +118,6 @@ func Score(c Case, hits []store.Hit, ks []int) CaseResult {
 	return r
 }
 
-var validPillars = map[string]bool{
-	"operational-excellence": true, "security": true, "reliability": true,
-	"performance-efficiency": true, "cost-optimization": true, "sustainability": true,
-}
-
 // CheckSchema は構成案が期待するスキーマに沿っているかを検証し、問題点を返す。
 func CheckSchema(p generate.Proposal) []string {
 	var problems []string
@@ -136,7 +131,7 @@ func CheckSchema(p generate.Proposal) []string {
 		problems = append(problems, "rationale が空")
 	}
 	for i, r := range p.Rationale {
-		if !validPillars[r.Pillar] {
+		if !slices.Contains(generate.Pillars, r.Pillar) {
 			problems = append(problems, fmt.Sprintf("rationale[%d].pillar が不正: %q", i, r.Pillar))
 		}
 		if strings.TrimSpace(r.Text) == "" {

@@ -38,6 +38,8 @@ flowchart LR
 | pgvector + HNSW（cosine） | 別の検索基盤を増やさず、メタデータ（pillar）と同じ DB で完結。再構築不要で追加登録できる |
 | 再実行しても重複しない（`source + section + content_hash` で一意） | 未登録チャンクだけ埋め込むので、再実行で API 課金が発生しない |
 | トークン数は「4文字 ≒ 1トークン」の近似 | 依存を増やさず、チャンクサイズ比較（Phase 3）には十分 |
+| 構成案は `output_config.format`（JSON outputs）で受け取る | 目的は「固定形の JSON を返させること」なので、ツール呼び出しではなく JSON outputs が合っている。応答テキストがスキーマ（`internal/generate/schema.go`。pillar は enum、Mermaid の書き方は `description`）に適合する JSON になり、前後に文章が付く・JSON が壊れる失敗が起きない。以前の「文字列から `{...}` を切り出す」処理は不要になった。当初は tool use（`submit_proposal`）を検討したが、現行モデル（既定の `claude-opus-5-5` など）は `tool_choice` の強制指定が 400 になり、`auto` では呼ばれる保証が無いため、JSON outputs を選んだ |
+| 生成中の SSE `delta` は進み具合（文字数）だけを流す | tool use の断片は JSON の一部で、そのまま表示しても意味のある文章にならない。フロントは「生成中…（N文字）」を表示し、完成後の `result` で全体を描画する |
 | ログは slog（JSON） | チャンク数・埋め込みトークン数・処理時間を機械可読で残す |
 
 ## セットアップ
@@ -112,6 +114,7 @@ open http://localhost:3000
 make server
 
 # SSE で retrieved → delta → result の順にイベントが流れる
+# delta は進み具合のみ: data: {"chars": 48}（構成案の本体は最後の result で届く）
 curl -N -X POST localhost:8080/api/propose \
   -H 'Content-Type: application/json' \
   -d '{"requirements":"月間10万PVのECサイト。商品画像のアップロードあり。可用性を重視、予算は抑えたい。"}'
@@ -163,9 +166,17 @@ make evaluate LABEL=baseline GENERATE=1      # 出力品質も評価（Claude �
 
 `GENERATE=1` では、次も確認します。
 
+- JSON のパース失敗件数（`ErrParse`。応答が空・JSON として不正・必須項目の欠落など）
 - JSON がスキーマどおりか（柱名の妥当性、必須項目）
 - Mermaid の簡易構文チェック（先頭の宣言・括弧の対応・エッジの有無）。厳密な構文検証ではありません
 - 存在しない引用 ID が返されていないか
+
+JSON パース失敗件数の修正前後（`GENERATE=1`、同じ `cases.yaml`）:
+
+| | パース失敗 |
+|---|---|
+| 修正前（プロンプトで JSON を指示。コミット `e02f33d` で計測可能） | 未計測（API キー投入後に記入） |
+| 修正後（`output_config.format`） | 未計測（API キー投入後に記入） |
 
 チャンクサイズなどを変えた前後は、`ingest` を `-max-tokens` / `-overlap` 付きで再取り込みし、`LABEL` を変えて同じ表を並べて比較します。
 

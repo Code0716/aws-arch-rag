@@ -22,6 +22,8 @@ type CaseResult struct {
 	MermaidProblems []string
 	DroppedIDs      int
 	GenerateError   string
+	// ParseFailed は LLM の出力を構成案として読み取れなかった場合（GenerateError の内数）。
+	ParseFailed bool
 }
 
 // Summary は全ケースの集計。k ごとの平均は Ks と同じ並び。
@@ -37,6 +39,7 @@ type Summary struct {
 	MermaidOK    int
 	NoDropped    int
 	GenerateFail int
+	ParseFail    int
 }
 
 func Summarize(results []CaseResult, ks []int) Summary {
@@ -62,6 +65,9 @@ func Summarize(results []CaseResult, ks []int) Summary {
 		s.Generated++
 		if r.GenerateError != "" {
 			s.GenerateFail++
+			if r.ParseFailed {
+				s.ParseFail++
+			}
 			continue
 		}
 		if len(r.SchemaProblems) == 0 {
@@ -107,6 +113,7 @@ func WriteMarkdown(w io.Writer, label string, ks []int, results []CaseResult) {
 	if s.Generated > 0 {
 		ok := s.Generated - s.GenerateFail
 		fmt.Fprintf(w, "| 生成成功 | %d / %d |\n", ok, s.Generated)
+		fmt.Fprintf(w, "| JSON パース失敗 | %d / %d |\n", s.ParseFail, s.Generated)
 		fmt.Fprintf(w, "| JSON スキーマ適合 | %d / %d |\n", s.SchemaOK, ok)
 		fmt.Fprintf(w, "| Mermaid 簡易構文OK | %d / %d |\n", s.MermaidOK, ok)
 		fmt.Fprintf(w, "| 引用IDがすべて実在（除外0件） | %d / %d |\n", s.NoDropped, ok)
