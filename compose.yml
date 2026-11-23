@@ -15,7 +15,7 @@ services:
       timeout: 3s
       retries: 20
 
-  # one-shot: db が healthy になったらマイグレーションを適用して終了する
+  # one-shot: dbがhealthyになったらマイグレーションを適用して終了する
   migrate:
     image: migrate/migrate:v4.18.1
     depends_on:

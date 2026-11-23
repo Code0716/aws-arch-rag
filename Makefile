@@ -12,7 +12,7 @@ up:
 down:
 	docker compose down
 
-# data/raw/*.pdf を pdftotext でテキスト化する（brew install poppler）
+# data/raw/*.pdfをpdftotextでテキスト化する（brew install poppler）
 extract:
 	@for f in data/raw/*.pdf; do \
 		[ -e "$$f" ] || { echo "data/raw に PDF がありません"; exit 1; }; \
