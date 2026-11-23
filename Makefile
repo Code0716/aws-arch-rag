@@ -3,7 +3,7 @@ export
 
 K ?= 5
 
-.PHONY: up down extract ingest search test vet
+.PHONY: up down extract ingest search server test vet
 
 up:
 	docker compose up -d --wait db
@@ -27,6 +27,10 @@ ingest:
 search:
 	@test -n "$(Q)" || { echo 'Q="要件テキスト" を指定してください'; exit 1; }
 	cd backend && go run ./cmd/search -k $(K) "$(Q)"
+
+# API サーバー（要 ANTHROPIC_API_KEY / CLAUDE_MODEL）
+server:
+	cd backend && go run ./cmd/server
 
 vet:
 	cd backend && go vet ./...

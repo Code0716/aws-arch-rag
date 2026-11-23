@@ -9,7 +9,7 @@
 ## ロードマップ
 
 - [ ] **Phase 1: 取り込みと検索（CLI のみ）** ← 実装済み・動作確認待ち
-- [ ] Phase 2: 生成（Claude・構造化出力・引用検証）と API（SSE）
+- [ ] **Phase 2: 生成（Claude・JSON 出力・引用検証）と API（SSE）** ← 実装済み・実 API での動作確認待ち
 - [ ] Phase 3: UI（React）・評価（recall@k）・改善前後の比較
 
 ## アーキテクチャ（Phase 1）
@@ -55,6 +55,25 @@ make ingest
 # 5. 検索
 make search Q="月間10万PVのECサイト。商品画像のアップロードあり。可用性を重視、予算は抑えたい。"
 ```
+
+### API サーバー（Phase 2）
+
+`.env` に `ANTHROPIC_API_KEY` と `CLAUDE_MODEL`（例: `claude-opus-5-5`）を設定して起動します。
+
+```bash
+make server
+
+# SSE で retrieved → delta → result の順にイベントが流れる
+curl -N -X POST localhost:8080/api/propose \
+  -H 'Content-Type: application/json' \
+  -d '{"requirements":"月間10万PVのECサイト。商品画像のアップロードあり。可用性を重視、予算は抑えたい。"}'
+
+# 引用元のチャンクを取得
+curl localhost:8080/api/chunks/12
+```
+
+- LLM が返した `chunk_ids` のうち、検索で渡していないものは除外され、ログ（`dropped_chunk_ids`）に残ります。
+- リクエストごとに、検索時間・LLM の入出力トークン数・レイテンシ・モデル名を slog（JSON）で出力します。
 
 ### 取り込む文書
 

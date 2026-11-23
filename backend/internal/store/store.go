@@ -3,6 +3,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -107,6 +108,30 @@ func (s *Store) Insert(ctx context.Context, rows []Row) (int, error) {
 		inserted += int(tag.RowsAffected())
 	}
 	return inserted, nil
+}
+
+// Chunk は引用元表示用の1チャンク。
+type Chunk struct {
+	ID      int64  `json:"id"`
+	Source  string `json:"source"`
+	Pillar  string `json:"pillar"`
+	Section string `json:"section"`
+	Content string `json:"content"`
+}
+
+// ErrNotFound は指定 ID のチャンクが存在しない場合のエラー。
+var ErrNotFound = errors.New("chunk not found")
+
+// Get は ID でチャンクを1件取得する。
+func (s *Store) Get(ctx context.Context, id int64) (Chunk, error) {
+	var c Chunk
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, source, pillar, section, content FROM chunks WHERE id = $1`, id).
+		Scan(&c.ID, &c.Source, &c.Pillar, &c.Section, &c.Content)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Chunk{}, ErrNotFound
+	}
+	return c, err
 }
 
 // Search は cosine 距離の近い順に上位 k 件を返す（HNSW インデックスを使う）。
