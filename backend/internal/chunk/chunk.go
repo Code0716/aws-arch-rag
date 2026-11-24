@@ -56,6 +56,12 @@ func PillarFromFilename(name string) string {
 	return "general"
 }
 
+// ligatures は pdftotext が出す合字（ﬁ, ﬃ など）を ASCII に戻す。
+// そのままだと "Performance eﬃciency" が柱の見出しと一致せず、検索・見出し照合でも "deﬁne" のように崩れる。
+var ligatures = strings.NewReplacer(
+	"\ufb00", "ff", "\ufb01", "fi", "\ufb02", "fl", "\ufb03", "ffi", "\ufb04", "ffl", "\ufb05", "st", "\ufb06", "st",
+)
+
 var pillarHeadings = map[string]string{
 	"operational excellence": "operational-excellence",
 	"security":               "security",
@@ -106,6 +112,7 @@ func headingOf(line string, prevBlank, nextBlank bool) (string, bool) {
 // Split は text を見出し単位で分け、長いセクションはさらに重なり付きで分割する。
 func Split(source, text string, opt Options) []Chunk {
 	basePillar := PillarFromFilename(source)
+	text = ligatures.Replace(text)
 	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 
 	type section struct {
@@ -121,7 +128,15 @@ func Split(source, text string, opt Options) []Chunk {
 	for i, line := range lines {
 		prevBlank := i == 0 || strings.TrimSpace(lines[i-1]) == ""
 		nextBlank := i == len(lines)-1 || strings.TrimSpace(lines[i+1]) == ""
-		if title, ok := headingOf(line, prevBlank, nextBlank); ok {
+		title, ok := headingOf(line, prevBlank, nextBlank)
+		if !ok && basePillar == "general" && prevBlank && !strings.HasPrefix(line, " ") {
+			// 柱の章見出しは直後が本文で、空行を挟まないことがある（pdftotext 出力）。
+			// 行頭が字下げされた表の中などは対象外にする。
+			if _, isPillar := pillarFromHeading(line); isPillar {
+				title, ok = strings.TrimSpace(line), true
+			}
+		}
+		if ok {
 			if basePillar == "general" {
 				if p, ok := pillarFromHeading(title); ok {
 					pillar = p
