@@ -94,3 +94,33 @@ func TestSplitIsDeterministic(t *testing.T) {
 		t.Error("Split is not deterministic")
 	}
 }
+
+// pdftotext の実出力: 柱の章見出しの直後が本文（空行なし）で、"eﬃciency" は合字になる。
+func TestSplitDetectsPillarChapterWithoutBlankLineAndLigature(t *testing.T) {
+	text := "Intro\n\n" +
+		"Reliability\nThe reliability pillar covers the ability of a workload to perform its function correctly.\n\n" +
+		"Foundations\n\nBody of foundations that is long enough to be kept as a chunk of its own.\n\n" +
+		"Performance e\ufb03ciency\nThe performance e\ufb03ciency pillar covers using resources e\ufb03ciently, and we de\ufb01ne it so.\n"
+	got := map[string]string{}
+	for _, c := range Split("framework.txt", text, DefaultOptions()) {
+		got[c.Section] = c.Pillar
+	}
+	if got["Reliability"] != "reliability" || got["Foundations"] != "reliability" {
+		t.Errorf("reliability chapter not detected: %v", got)
+	}
+	if got["Performance efficiency"] != "performance-efficiency" {
+		t.Errorf("ligature heading not detected: %v", got)
+	}
+}
+
+// 字下げされた表の中の語（直後が本文）は、柱の章見出しとして扱わない。
+func TestSplitIgnoresIndentedPillarWordInTable(t *testing.T) {
+	text := "Reliability\nThe reliability pillar covers the ability of a workload to perform its function.\n\n" +
+		"                      Security\n                      Protect information, systems, and assets in the table.\n\n" +
+		"Foundations\n\nAnother paragraph that is long enough to become its own chunk here.\n"
+	for _, c := range Split("framework.txt", text, DefaultOptions()) {
+		if c.Pillar != "reliability" {
+			t.Errorf("pillar switched by indented text: %+v", c)
+		}
+	}
+}
