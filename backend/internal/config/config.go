@@ -17,6 +17,9 @@ type Config struct {
 	AnthropicAPIKey string
 	ClaudeModel     string
 	Addr            string
+
+	// 検索前にクエリを英語に訳すモデル（評価の -translate で使う）。
+	TranslateModel string
 }
 
 func Load() (Config, error) {
@@ -27,6 +30,7 @@ func Load() (Config, error) {
 		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		ClaudeModel:     os.Getenv("CLAUDE_MODEL"),
 		Addr:            getenv("ADDR", ":8080"),
+		TranslateModel:  os.Getenv("TRANSLATE_MODEL"),
 	}
 	dim, err := strconv.Atoi(getenv("EMBED_DIM", "1024"))
 	if err != nil {
