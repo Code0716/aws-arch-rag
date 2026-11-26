@@ -211,6 +211,45 @@ make evaluate LABEL=baseline GENERATE=1      # 出力品質も評価（Claude �
 - k は大きいほど recall が上がります（@20 で 0.46〜0.50）。ただし生成に渡すチャンクが増えるので、生成の入力トークンと引用の精度（`GENERATE=1`）とのトレードオフです。この評価では測っていません。
 - 既定値は変えていません。1024 以上を採るかは、生成側の評価（入力トークン・引用の質）を見てから決めます。
 
+#### recall が 0 のケースの調査
+
+baseline で見出し recall@10 が 0 の 4 ケース（`ec-site-availability-cost`、`log-analytics-cost`、`data-lake-batch`、`startup-mvp`）を調べました。Claude は使わず、Voyage でクエリを埋め込むだけです。期待した見出しが、全 2050 チャンクの中で何位かを、インデックスを使わない全件走査で測りました。要件の英訳は人手です（日本語 / 英語の順位を併記）。`cases.yaml` は変えていません。
+
+期待した見出しの最良順位（1 位が最良、10 位以内なら当たり）:
+
+| ケース | 期待した見出し | 日本語 | 英訳 |
+|---|---|---|---|
+| ec-site-availability-cost | REL10-BP01 | 198 | 39 |
+| | REL11-BP03 | 526 | 380 |
+| | COST08-BP03 | 44 | 177 |
+| | COST07-BP01 | 18 | 29 |
+| log-analytics-cost | COST03-BP03 | **10** | **7** |
+| | SEC07-BP04 | 77 | 91 |
+| | SUS04-BP01 | 18 | 27 |
+| data-lake-batch | Time-based supply aligning capacity to predictable demand | 1376 | 1069 |
+| | SUS02-BP01 | 189 | 32 |
+| | COST08-BP01 | 39 | 36 |
+| | COST07-BP01 | 141 | 44 |
+| startup-mvp | Evaluate cost when selecting services | 94 | 74 |
+| | COST08-BP03 | 350 | 63 |
+| | PERF02-BP04 | 52 | 21 |
+
+わかったこと:
+
+- **惜しいのは 1 件だけです。** `log-analytics-cost` の COST03-BP03（10 位、英訳で 7 位）。評価の HNSW 検索では 11 位で、10 位とのスコア差は 0.0001 程度の同点でした。残り 13 件の期待は 10 位に遠く届きません（最も近い COST07-BP01 でも 18 位）。
+- **英訳の効果は一部だけです。** 14 件中 10 件で順位が上がり、4 件は下がりました。10 位以内に入る期待は増えていません（COST03-BP03 が 10 位から 7 位に上がっただけ）。言語が主因ではありません。
+- **上位 10 件のうち 43%（4 ケース×10 枠＝40 枠中 17 枠）が、`general`（FND 章など）と `serverless-lens` でした。** 特に `startup-mvp` は 10 件中 5 件が Serverless Lens の導入文や図の説明（"Blue/green deployments"、"Alexa Skill" など）で、要件が抽象的なほど、どの文書にも当てはまる文が上位に来ます。
+- **同じ BP の複数チャンクが上位を占めます。** `log-analytics-cost` では REL06-BP05 が 3 件、FND05-BP03 が 3 件で、10 枠のうち 6 枠が 2 つの BP でした。
+- **埋め込みの対象は本文（`c.Content`）だけで、見出しは含まれません**（`backend/internal/ingest/ingest.go`）。短いチャンクほど文脈を失います。例: SUS02-BP03 の「purpose-built silicon」（Trainium などの箇条書き、416 文字）は ML の要件で 724 位でした。
+- **期待値の置き方にも疑問が残ります。** `Time-based supply aligning capacity to predictable demand` は、見出しは時間ベースのスケーリングですが、チャンクの本文は起動テンプレートの話です（1069 位）。`carbon intensity of AWS Regions` は、本文が再生可能エネルギーの指標の説明で、ML の要件から遠く、1435 位でした。`Evaluate cost when selecting services` は節の導入文だけです。期待値は検索結果に合わせて変えない方針なので、見直すかはまだ決めていません。
+
+次に試すこと（検証は未実施）:
+
+1. 埋め込む文に見出しを足す（`見出し + 本文`）。短いチャンクの文脈不足への対策です。
+2. 同じ BP のチャンクを上位 k 件で 1〜2 件までにする。
+3. `general` と `serverless-lens` を検索の対象から外す、または順位を下げる。
+4. 上の 3 つで、期待値の見直しが必要かを切り分ける。
+
 
 `GENERATE=1` では、次も確認します。
 
