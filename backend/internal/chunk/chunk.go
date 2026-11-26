@@ -90,6 +90,40 @@ var (
 	numberedHeading = regexp.MustCompile(`^\d+(\.\d+)*\.?\s+[A-Z][^.]{2,80}$`)
 )
 
+var (
+	// bestPracticeHeading は "REL09-BP03 Perform data backup automatically" や "REL09: How do you back up data?" のような、
+	// ベストプラクティス・設問の見出し。
+	bestPracticeHeading = regexp.MustCompile(`^[A-Z]{2,5} ?\d{1,2}(-BP\d{2})?\b`)
+	// numberedStep は "2. Define and automate ...:" のような手順の見出し。
+	numberedStep = regexp.MustCompile(`^\d+\.\s`)
+)
+
+// genericSubheadings は、どのベストプラクティスにも現れる汎用の小見出し。
+// そのままだと "Implementation guidance" が数百チャンクの section になり、見出しから内容を特定できない。
+var genericSubheadings = map[string]bool{
+	"Implementation guidance":    true,
+	"Implementation steps":       true,
+	"Resources":                  true,
+	"Common issues to watch for": true,
+	"Capability intent":          true,
+}
+
+// qualifySection は、汎用の小見出しや手順の見出しに、親のベストプラクティスの見出しを前置きする。
+// 例: "REL09-BP03 Perform data backup automatically / Implementation guidance"。
+// bp は現在のベストプラクティスの見出し（更新して返す）。
+func qualifySection(title, bp string) (qualified, newBP string) {
+	if _, isPillar := pillarFromHeading(title); isPillar {
+		return title, ""
+	}
+	if bestPracticeHeading.MatchString(title) {
+		return title, title
+	}
+	if bp != "" && (genericSubheadings[title] || numberedStep.MatchString(title)) {
+		return bp + " / " + title, bp
+	}
+	return title, bp
+}
+
 func headingOf(line string, prevBlank, nextBlank bool) (string, bool) {
 	t := strings.TrimSpace(line)
 	if t == "" {
@@ -123,6 +157,7 @@ func Split(source, text string, opt Options) []Chunk {
 	// 6本の柱が1冊に統合されたフレームワーク文書（ファイル名で柱が決まらない場合）は、
 	// 柱の章見出しに出会うたびに現在の柱を切り替える。
 	pillar := basePillar
+	bp := "" // 現在のベストプラクティスの見出し
 	cur := section{title: "(preamble)", pillar: pillar}
 	var sections []section
 	for i, line := range lines {
@@ -142,6 +177,7 @@ func Split(source, text string, opt Options) []Chunk {
 					pillar = p
 				}
 			}
+			title, bp = qualifySection(title, bp)
 			sections = append(sections, cur)
 			cur = section{title: title, pillar: pillar}
 			continue

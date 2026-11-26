@@ -124,3 +124,39 @@ func TestSplitIgnoresIndentedPillarWordInTable(t *testing.T) {
 		}
 	}
 }
+
+// 汎用の小見出しの続きのチャンクにも、親のベストプラクティス名が残る。
+func TestSplitQualifiesGenericSubheadingsWithBestPractice(t *testing.T) {
+	text := "Reliability\nThe reliability pillar covers the ability of a workload to perform its function.\n\n" +
+		"REL09-BP03 Perform data backup automatically\n\nIntro paragraph that is long enough to be kept as a chunk.\n\n" +
+		"Implementation guidance\n\nUse AWS Backup to automate backups on a schedule for all your data stores.\n\n" +
+		"Implementation steps\n\n1. Define the backup plan: Decide the schedule and the retention for each tier.\n\n" +
+		"REL10-BP01 Deploy the workload to multiple locations\n\nSecond intro paragraph that is long enough to be kept.\n\n" +
+		"Implementation guidance\n\nSpread the workload across several Availability Zones in the Region.\n"
+	got := map[string]bool{}
+	for _, c := range Split("framework.txt", text, DefaultOptions()) {
+		got[c.Section] = true
+	}
+	for _, want := range []string{
+		"REL09-BP03 Perform data backup automatically",
+		"REL09-BP03 Perform data backup automatically / Implementation guidance",
+		"REL10-BP01 Deploy the workload to multiple locations / Implementation guidance",
+	} {
+		if !got[want] {
+			t.Errorf("section %q missing: %v", want, got)
+		}
+	}
+	// 親が違えば、同じ小見出しでも別の section になる
+	if got["Implementation guidance"] {
+		t.Errorf("bare generic heading remained: %v", got)
+	}
+}
+
+// ベストプラクティスの見出しが無い文書（親が分からない）では、汎用の小見出しをそのまま使う。
+func TestSplitKeepsGenericSubheadingWithoutParent(t *testing.T) {
+	text := "Implementation guidance\n\nSome guidance that is long enough to become its own chunk here.\n"
+	cs := Split("notes.txt", text, DefaultOptions())
+	if len(cs) != 1 || cs[0].Section != "Implementation guidance" {
+		t.Errorf("chunks = %+v", cs)
+	}
+}
