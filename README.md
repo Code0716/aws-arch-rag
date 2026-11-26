@@ -191,8 +191,20 @@ JSON パース失敗件数の修正前後（`GENERATE=1`、同じ `cases.yaml`�
 
 | | パース失敗 |
 |---|---|
-| 修正前（プロンプトで JSON を指示。コミット `e02f33d` で計測可能） | 未計測（API キー投入後に記入） |
-| 修正後（`output_config.format`） | 未計測（API キー投入後に記入） |
+| 修正前（プロンプトで JSON を指示。コミット `e02f33d` で計測可能） | 未計測 |
+| 修正後（`output_config.format`、`voyage-4`、k=5、15 ケース） | **0 / 15** |
+
+生成の評価（`make evaluate LABEL=baseline-voyage-4-generate K=5 GENERATE=1`、`CLAUDE_MODEL=claude-opus-5-5`）の結果:
+
+| 指標 | 値 |
+|---|---|
+| 生成成功 | 15 / 15 |
+| JSON パース失敗 | 0 / 15 |
+| JSON スキーマ適合 | 15 / 15 |
+| Mermaid 簡易構文OK | 15 / 15 |
+| 引用IDがすべて実在（除外0件） | 15 / 15 |
+
+15 ケース 1 回ずつの結果で、ばらつきは見ていません。修正前の値は未計測のため、改善の大きさは比較できていません。
 
 チャンクサイズなどを変えた前後は、`ingest` を `-max-tokens` / `-overlap` 付きで再取り込みし、`LABEL` を変えて同じ表を並べて比較します。
 
