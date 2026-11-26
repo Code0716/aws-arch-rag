@@ -57,8 +57,9 @@ web:
 	cd frontend && pnpm install && pnpm dev
 
 # 検索評価（recall@k）。LABEL は改善前後の比較用。GENERATE=1 で出力品質も評価（Claude の課金あり）
+# TRANSLATE=1 で検索前に要件を英語に訳す（TRANSLATE_MODEL を使う。Claude の課金あり）
 evaluate:
-	cd backend && go run ./cmd/eval -k $(K) -label "$(or $(LABEL),baseline)" $(if $(GENERATE),-generate)
+	cd backend && go run ./cmd/eval -k $(K) -label "$(or $(LABEL),baseline)" $(if $(GENERATE),-generate) $(if $(TRANSLATE),-translate)
 
 vet:
 	cd backend && go vet ./...

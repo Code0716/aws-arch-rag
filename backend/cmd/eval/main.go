@@ -19,6 +19,7 @@ import (
 	"github.com/Code0716/aws-arch-rag/backend/internal/obs"
 	"github.com/Code0716/aws-arch-rag/backend/internal/retrieve"
 	"github.com/Code0716/aws-arch-rag/backend/internal/store"
+	"github.com/Code0716/aws-arch-rag/backend/internal/translate"
 )
 
 func main() {
@@ -33,6 +34,7 @@ func run() error {
 	kFlag := flag.String("k", "5", "recall@k の k。カンマ区切りで複数指定できる（例: 3,5,10）")
 	label := flag.String("label", "baseline", "この実行のラベル（例: chunk512-overlap64）。改善前後の比較用")
 	doGenerate := flag.Bool("generate", false, "生成も実行して出力品質を評価する（Claude の課金が発生する）")
+	doTranslate := flag.Bool("translate", false, "検索前に要件を英語に訳す（TRANSLATE_MODEL を使う。Claude の課金が発生する）")
 	flag.Parse()
 
 	ks, err := parseKs(*kFlag)
@@ -58,6 +60,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if *doTranslate && (cfg.AnthropicAPIKey == "" || cfg.TranslateModel == "") {
+		return errors.New("-translate には ANTHROPIC_API_KEY と TRANSLATE_MODEL が必要です（例: TRANSLATE_MODEL=claude-haiku-5-5）")
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -73,6 +78,9 @@ func run() error {
 		Store: st,
 		Log:   log,
 	}
+	if *doTranslate {
+		retriever.Translate = translate.NewAnthropic(cfg.AnthropicAPIKey, cfg.TranslateModel)
+	}
 	var gen *generate.Generator
 	if *doGenerate {
 		gen = &generate.Generator{LLM: generate.NewAnthropic(cfg.AnthropicAPIKey, cfg.ClaudeModel), Log: log}
@@ -84,6 +92,10 @@ func run() error {
 		res, err := retriever.Search(ctx, c.Requirements, maxK)
 		if err != nil {
 			return fmt.Errorf("case %s: %w", c.ID, err)
+		}
+		if *doTranslate {
+			// 訳文は採点に使わないが、変な訳が無いかをあとで目で確かめるために残す
+			fmt.Fprintf(os.Stderr, "translated %s: %s\n", c.ID, res.Query)
 		}
 		r := evaluate.Score(c, res.Hits, ks)
 
