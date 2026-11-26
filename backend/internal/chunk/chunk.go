@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Chunk は埋め込み・保存の単位。
@@ -69,6 +70,16 @@ var pillarHeadings = map[string]string{
 	"performance efficiency": "performance-efficiency",
 	"cost optimization":      "cost-optimization",
 	"sustainability":         "sustainability",
+	// 日本語版（docs.aws.amazon.com/ja_jp）の柱の章タイトル
+	"運用上の優秀性":   "operational-excellence",
+	"セキュリティ":    "security",
+	"信頼性":       "reliability",
+	"パフォーマンス効率": "performance-efficiency",
+	"コスト最適化":    "cost-optimization",
+	"持続可能性":     "sustainability",
+	// 本編の章タイトルは、概要と表記が異なる
+	"コストの最適化":  "cost-optimization",
+	"サステナビリティ": "sustainability",
 }
 
 // pillarFromHeading は見出しが柱の章タイトル（例: "Reliability" や "Reliability pillar"）なら柱名を返す。
@@ -136,7 +147,7 @@ func headingOf(line string, prevBlank, nextBlank bool) (string, bool) {
 		return t, true
 	}
 	// pdftotext 出力向け: 前後が空行の短い単独行で、文末記号がなく大文字始まり。
-	if prevBlank && nextBlank && len(t) <= 60 && unicode.IsUpper([]rune(t)[0]) &&
+	if prevBlank && nextBlank && utf8.RuneCountInString(t) <= 60 && unicode.IsUpper([]rune(t)[0]) &&
 		!strings.ContainsAny(t[len(t)-1:], ".,;:") {
 		return t, true
 	}

@@ -160,3 +160,21 @@ func TestSplitKeepsGenericSubheadingWithoutParent(t *testing.T) {
 		t.Errorf("chunks = %+v", cs)
 	}
 }
+
+// 日本語版 PDF: 柱の章タイトルが日本語で、直後が本文（空行なし）。
+func TestSplitDetectsJapanesePillarChapters(t *testing.T) {
+	text := "はじめに\n\n" +
+		"信頼性\n信頼性の柱は、ワークロードが意図した機能を正しく一貫して実行する能力をカバーします。\n\n" +
+		"REL09-BP03 データバックアップを自動的に実行する\n\nバックアップを自動化するための説明で、チャンクとして残る長さにします。\n\n" +
+		"セキュリティ\nセキュリティの柱は、データ、システム、アセットを保護する能力をカバーします。\n"
+	got := map[string]string{}
+	for _, c := range Split("framework-ja.txt", text, DefaultOptions()) {
+		got[c.Section] = c.Pillar
+	}
+	if got["信頼性"] != "reliability" || got["REL09-BP03 データバックアップを自動的に実行する"] != "reliability" {
+		t.Errorf("reliability chapter not detected: %v", got)
+	}
+	if got["セキュリティ"] != "security" {
+		t.Errorf("security chapter not detected: %v", got)
+	}
+}
