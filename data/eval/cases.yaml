@@ -5,8 +5,11 @@
 # 注意:
 # - 期待値は「その要件なら、この柱の記述が検索で出てほしい」という人間の判断です。
 #   正解データではなく、検索の改善（チャンクサイズ・k など）を前後で比べるための物差しです。
-# - sections は取り込んだ文書の実際の見出しに依存します。`make sections` で見出しの一覧を確認して追加してください（検索結果を見て期待値を決めないこと）。
-#   （現状は、見出しに依存しない pillars 中心の期待値です）
+# - sections は取り込んだ文書の実際の見出しに依存します。`make sections` で見出しの一覧を確認して決めます。
+#   検索結果を見て期待値を決めないこと（出てきた見出しを期待値にすると評価が必ず高く出る）。
+#   見出しは "REL09-BP03 Perform data backup automatically / Implementation guidance" のように、
+#   ベストプラクティスの見出しを先頭に持つので、"REL09-BP03" のような ID だけでも照合できる。
+# - 主な指標は sections の recall。pillars は参考（柱は6本しかなく、上限に張り付きやすい）。
 # - 柱の名前: operational-excellence / security / reliability / performance-efficiency /
 #   cost-optimization / sustainability
 - id: ec-site-availability-cost
@@ -14,88 +17,102 @@
     月間10万PVのECサイト。商品画像のアップロードあり。可用性を重視、予算は抑えたい。
   expect:
     pillars: [reliability, cost-optimization]
+    sections: ["REL10-BP01", "REL11-BP03", "COST08-BP03", "COST07-BP01"]
 
 - id: internal-batch-security
   requirements: >-
     社内向けの夜間バッチ処理システム。個人情報を含むデータを扱うため、アクセス制御と暗号化を重視する。
   expect:
     pillars: [security, operational-excellence]
+    sections: ["SEC08-BP02", "SEC08-BP04", "SEC07-BP01", "FND02-BP05"]
 
 - id: serverless-api-spiky
   requirements: >-
     アクセスが不定期に急増するモバイルアプリ向けAPI。運用負荷は最小にしたい。サーバーレスで構成したい。
   expect:
     pillars: [performance-efficiency, operational-excellence]
+    sections: ["PERF02-BP04", "REL05-BP02", "Amazon API Gateway", "Reference architecture for a mobile backend"]
 
 - id: dr-requirement
   requirements: >-
     基幹システムの災害対策。RPO 15分、RTO 1時間以内で別リージョンに復旧できるようにしたい。
   expect:
     pillars: [reliability]
-    sections: [backup]
+    sections: ["Choosing a disaster recovery strategy", "Recovery objectives", "REL13-BP05", "REL09-BP03"]
 
 - id: green-batch
   requirements: >-
     機械学習の学習ジョブを定期実行する。環境負荷とコストの両方を下げたい。
   expect:
     pillars: [sustainability, cost-optimization]
+    sections: ["purpose-built silicon", "Optimize ML implementations", "carbon intensity of AWS Regions", "COST07-BP01"]
 
 - id: static-site-global
   requirements: >-
     海外からも読まれる企業のコーポレートサイト。表示速度を重視し、運用の手間はできるだけかけたくない。
   expect:
     pillars: [performance-efficiency, operational-excellence]
+    sections: ["PERF04-BP02", "Networking and content delivery", "Managed services compared to control"]
 
 - id: saas-multi-tenant
   requirements: >-
     BtoB の SaaS（マルチテナント）。テナント間のデータ分離と、特定のテナントの負荷が他に影響しないようにしたい。
   expect:
     pillars: [security, reliability]
+    sections: ["Use fault isolation to protect your workload", "SEC01-BP01", "REL05-BP02", "SEC08-BP04"]
 
 - id: log-analytics-cost
   requirements: >-
     毎日数百GBのアクセスログを蓄積して分析したい。保存コストが膨らまないようにしたい。
   expect:
     pillars: [cost-optimization, performance-efficiency]
+    sections: ["COST03-BP03", "SEC07-BP04", "SUS04-BP01"]
 
 - id: realtime-chat
   requirements: >-
     数万人が同時接続するリアルタイムのチャットサービス。接続が切れても自動で復帰し、遅延を小さくしたい。
   expect:
     pillars: [reliability, performance-efficiency]
+    sections: ["REL11-BP03", "REL05-BP03", "PERF04-BP05", "REL05-BP06"]
 
 - id: compliance-audit
   requirements: >-
     金融系の社内システム。監査のために、誰がいつ何を変更したかを追跡でき、権限は最小限にしたい。
   expect:
     pillars: [security, operational-excellence]
+    sections: ["FND05-BP03", "FND05-BP05", "FND02-BP05", "SEC04-BP01"]
 
 - id: ci-cd-delivery
   requirements: >-
     小さなチームで週に何度もリリースしたい。失敗したときにすぐ戻せて、障害の原因を追いやすくしたい。
   expect:
     pillars: [operational-excellence, reliability]
+    sections: ["OPS04-BP02", "OPS04-BP01", "OPS03-BP04", "OPS01-BP04"]
 
 - id: data-lake-batch
   requirements: >-
     複数のシステムのデータを集めて夜間に集計するデータ基盤。使っていない時間のコストを抑えたい。
   expect:
     pillars: [cost-optimization, sustainability]
+    sections: ["Time-based supply aligning capacity to predictable demand", "SUS02-BP01", "COST08-BP01", "COST07-BP01"]
 
 - id: public-api-ddos
   requirements: >-
     一般公開するAPI。不正なアクセスや過剰なリクエストから守りつつ、正規のユーザーには安定して応答したい。
   expect:
     pillars: [security, reliability]
+    sections: ["REL05-BP02", "SEC05-BP03", "SEC05-BP04"]
 
 - id: mobile-push-notifications
   requirements: >-
     数百万ユーザーにプッシュ通知を配信するシステム。配信が集中する時間帯でも遅れず、再送や失敗の扱いを明確にしたい。
   expect:
     pillars: [reliability, performance-efficiency]
+    sections: ["REL05-BP03", "REL04-BP04", "Fan out with pub/sub messaging", "REL05-BP04"]
 
 - id: startup-mvp
   requirements: >-
     スタートアップの新規サービスの MVP。まずは最小コストで始め、利用が伸びたら無理なく拡張できるようにしたい。
   expect:
     pillars: [cost-optimization, performance-efficiency]
+    sections: ["Evaluate cost when selecting services", "COST08-BP03", "PERF02-BP04"]
