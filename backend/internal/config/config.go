@@ -23,7 +23,7 @@ func Load() (Config, error) {
 	c := Config{
 		DatabaseURL:     os.Getenv("DATABASE_URL"),
 		VoyageAPIKey:    os.Getenv("VOYAGE_API_KEY"),
-		EmbedModel:      getenv("EMBED_MODEL", "voyage-3.5"),
+		EmbedModel:      getenv("EMBED_MODEL", "voyage-4"),
 		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		ClaudeModel:     os.Getenv("CLAUDE_MODEL"),
 		Addr:            getenv("ADDR", ":8080"),
